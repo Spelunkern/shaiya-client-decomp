@@ -1,6 +1,7 @@
 #include "terrain.h"
 #include <cmath>
 #include <algorithm>
+#include <cstring>
 #include <limits>
 #include <stdexcept>
 #include <utility>
@@ -75,6 +76,45 @@ DungeonDescriptor decode_dungeon_descriptor(const std::vector<std::uint8_t>& byt
         throw std::invalid_argument("Unterminated or empty dungeon name");
     result.name.assign(first, end);
     result.path = "data/world/dungeon/" + result.name;
+    return result;
+}
+std::string decode_terrain_water_name(const std::vector<std::uint8_t>& bytes, std::size_t offset) {
+    if (offset > bytes.size() || bytes.size() - offset < 0x100)
+        throw std::invalid_argument("Truncated terrain water name");
+    auto first = bytes.begin() + offset;
+    auto end = std::find(first, first + 0x100, 0);
+    if (end == first + 0x100)
+        throw std::invalid_argument("Unterminated terrain water name");
+    return std::string(first, end);
+}
+WaterDefinition decode_water_definition(const std::vector<std::uint8_t>& bytes) {
+    if (bytes.size() < 16)
+        throw std::invalid_argument("Truncated water definition");
+    auto word = [&](std::size_t p) {
+        return std::uint32_t(bytes[p]) | std::uint32_t(bytes[p + 1]) << 8 |
+               std::uint32_t(bytes[p + 2]) << 16 | std::uint32_t(bytes[p + 3]) << 24;
+    };
+    WaterDefinition result;
+    auto size_bits = word(0);
+    std::memcpy(&result.tile_size, &size_bits, 4);
+    result.argb = word(4);
+    result.frame_period = word(8);
+    auto count = word(12);
+    if (count > (bytes.size() - 16) / 0x100)
+        throw std::invalid_argument("Truncated water frame names");
+    for (std::uint32_t i = 0; i < count; ++i) {
+        auto first = bytes.begin() + 16 + std::size_t(i) * 0x100;
+        auto end = std::find(first, first + 0x100, 0);
+        if (end == first + 0x100)
+            throw std::invalid_argument("Unterminated water frame name");
+        std::string name(first, end);
+        if (!name.empty()) {
+            if (name.size() < 4)
+                throw std::invalid_argument("Water frame name too short for extension rewrite");
+            name.replace(name.size() - 3, 3, "dds");
+        }
+        result.frames.push_back(std::move(name));
+    }
     return result;
 }
 static TerrainGridData decode_grid_at(std::uint32_t extent, const std::vector<std::uint8_t>& bytes,

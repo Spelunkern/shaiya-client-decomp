@@ -62,6 +62,23 @@ struct DungeonDescriptor {
     std::size_t bytes_consumed = 0x104;
 };
 DungeonDescriptor decode_dungeon_descriptor(const std::vector<std::uint8_t>& bytes);
+// 004518a0 (field branch): after the grid and material records comes a 0x100-byte
+// name selecting a `.wtr` water definition under "data/entity/water" (006bf7a4),
+// opened by 005b0670 with "%s\\%s". An empty name is tolerated by the original
+// (its failure result is ignored): the field simply has no water definition.
+std::string decode_terrain_water_name(const std::vector<std::uint8_t>& bytes, std::size_t offset);
+// `.wtr` layout read by 005b0670: tile size float (005b0490: scales the UV
+// extents), ARGB vertex colour (005b0500), frame period in milliseconds
+// (+0x24, compared with the accumulated time in 005b0610), a frame count and
+// that many 0x100-byte texture names. The original overwrites the last three
+// characters of every non-empty name with "dds" before loading it from the
+// same directory; an empty name leaves that frame unloaded.
+struct WaterDefinition {
+    float tile_size = 0;
+    std::uint32_t argb = 0, frame_period = 0;
+    std::vector<std::string> frames;
+};
+WaterDefinition decode_water_definition(const std::vector<std::uint8_t>& bytes);
 // 005b3360: inclusive coordinate clamp, but row pitch is extent itself.
 // Keep the original address rule; do not silently change to extent+1.
 class TerrainHeights {

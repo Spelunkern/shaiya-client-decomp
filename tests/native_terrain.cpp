@@ -85,6 +85,40 @@ int main(int argc, char** argv) {
             expect_throw([&] { genesis::decode_dungeon_descriptor(prefix); },
                          "FLD accepted as dungeon");
         }
+        {
+            std::vector<std::uint8_t> wtr(16 + 3 * 0x100);
+            wtr[2] = 0x80;
+            wtr[3] = 0x42;
+            wtr[4] = 0x11;
+            wtr[8] = 150;
+            wtr[12] = 3;
+            const char a[] = "B_caust00.jpg";
+            std::memcpy(&wtr[16], a, sizeof a);
+            const char c[] = "x.tga";
+            std::memcpy(&wtr[16 + 0x200], c, sizeof c);
+            auto water = genesis::decode_water_definition(wtr);
+            if (water.tile_size != 64.f || water.argb != 0x11 || water.frame_period != 150 ||
+                water.frames.size() != 3 || water.frames[0] != "B_caust00.dds" ||
+                !water.frames[1].empty() || water.frames[2] != "x.dds")
+                throw std::runtime_error("Water definition decoding failed");
+            auto short_file = wtr;
+            short_file.pop_back();
+            auto bad = [](auto&& f) {
+                try {
+                    f();
+                } catch (const std::invalid_argument&) {
+                    return true;
+                }
+                return false;
+            };
+            if (!bad([&] { genesis::decode_water_definition(short_file); }) ||
+                !bad([&] { genesis::decode_water_definition({}); }))
+                throw std::runtime_error("Truncated water definition accepted");
+            std::vector<std::uint8_t> name(0x100);
+            if (!genesis::decode_terrain_water_name(name, 0).empty() ||
+                !bad([&] { genesis::decode_terrain_water_name(name, 1); }))
+                throw std::runtime_error("Terrain water name bounds wrong");
+        }
         if (argc > 1) {
             std::filesystem::path root(argv[1]);
             auto archive = shaiya::portable::Archive::open(root / "data.sah", root / "data.saf");
@@ -114,7 +148,21 @@ int main(int argc, char** argv) {
                 throw std::runtime_error("Original FLD terrain sample was not finite");
             std::printf("World 0 candidate grid: %u x %u, sample height %.3f\n", dimension,
                         dimension, actual_height);
-            unsigned fields = 0, dungeons = 0, grids = 0;
+            {
+                auto name = genesis::decode_terrain_water_name(
+                    source, decoded.prefix.bytes_consumed + decoded.grid.bytes_consumed + 4 +
+                                516 * materials.size());
+                if (name != "B1_Water.wtr")
+                    throw std::runtime_error("World 0 water name mismatch");
+                auto water = genesis::decode_water_definition(
+                    archive.read("data/entity/water/" + name));
+                if (water.tile_size != 64.f || water.argb != 0xd8ffffff ||
+                    water.frame_period != 150 || water.frames.size() != 32 ||
+                    water.frames[0] != "B_caust00.dds" ||
+                    !archive.find("data/entity/water/" + water.frames[31]))
+                    throw std::runtime_error("B1_Water.wtr differs from the recovered contract");
+            }
+            unsigned fields = 0, dungeons = 0, grids = 0, with_water = 0, no_water = 0;
             for (const auto& path : archive.paths()) {
                 if (path.rfind("data/world/", 0) != 0 || path.size() < 4 ||
                     path.substr(path.size() - 4) != ".wld")
@@ -130,6 +178,21 @@ int main(int argc, char** argv) {
                         if (candidate.grid.heights.size() ==
                             std::size_t(candidate.dimension) * candidate.dimension)
                             ++grids;
+                        auto records = genesis::decode_terrain_materials(
+                            world, candidate.prefix.bytes_consumed + candidate.grid.bytes_consumed);
+                        auto water_name = genesis::decode_terrain_water_name(
+                            world, candidate.prefix.bytes_consumed + candidate.grid.bytes_consumed +
+                                       4 + 516 * records.size());
+                        if (water_name.empty())
+                            ++no_water;
+                        else {
+                            auto definition = genesis::decode_water_definition(
+                                archive.read("data/entity/water/" + water_name));
+                            for (const auto& frame : definition.frames)
+                                if (!archive.find("data/entity/water/" + frame))
+                                    throw std::runtime_error("Water frame missing: " + frame);
+                            ++with_water;
+                        }
                     } catch (const std::invalid_argument&) {
                         // A field may use different dimensions or a different stream layout.
                     }
@@ -145,6 +208,8 @@ int main(int argc, char** argv) {
             }
             if (!fields)
                 throw std::runtime_error("No original FLD worlds found");
+            if (with_water != 31 || no_water != 2)
+                throw std::runtime_error("Field water definition coverage changed");
             std::printf("Original world prefixes: %u FLD, %u DUN; %u candidate grids fit\n", fields,
                         dungeons, grids);
         }

@@ -112,6 +112,16 @@ launcher until the native application supports the client behavior.
   `004462d0`, further lists, lights, sounds) is shared with the field branch,
   begins at byte 0x104 for DUN and is not decoded yet; no player placement,
   collision or octree culling inside dungeons exists.
+- Water definitions: every FLD descriptor stores, right after its material
+  records, a 0x100-byte `.wtr` name (31 of 33 local fields; two are empty,
+  which the original tolerates). `decode_water_definition` ports `005b0670`:
+  tile-size float, ARGB colour, frame period in milliseconds (`005b0610`
+  accumulates elapsed time against it to step frames), frame count and
+  0x100-byte texture names whose last three characters are rewritten to `dds`.
+  All three local `.wtr` files decode and every referenced frame exists. This
+  supplies water's textures, colour and animation clock; the vertical level at
+  which the ±2048 plane is placed still comes from an owner not yet traced, so
+  no scene instantiates water.
 - Standard character 3DC decoding retains the inverse-bind matrices, authored
   40-byte skin vertices and 16-bit indices. It follows the two-influence
   offsets/weighting in `00550fb0`/`005514a0` and the native actor skin pass.
