@@ -70,8 +70,9 @@ launcher until the native application supports the client behavior.
   alignment, CALCRECT, clipping) and `Text::outlined_label` ports the
   five-pass outlined label with `<<` segment markup and blue-key transparency.
   Complex shaping (the original's Uniscribe path) remains unported.
-- F12 saves a lossless PNG screenshot (`screenshots/`), replacing the original
-  WIC JPEG capture. `Renderer::resource_counts()` exposes live textures,
+- `encode_png` writes lossless PNGs (no zlib) for captures; no live hotkey exists
+  because the original's `capture_jpeg` caller is untranscribed assembly.
+  `Renderer::resource_counts()` exposes live textures,
   meshes and targets so owners can verify unloading.
 - CPU texture decoding from DDS BC1/2/3 and packed channels, TGA/RLE and BMP.
   No IJL, WIC or legacy DLL is used by these components.
