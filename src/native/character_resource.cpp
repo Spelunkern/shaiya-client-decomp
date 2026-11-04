@@ -69,4 +69,11 @@ void CharacterResource::draw(const Matrix& world, const std::vector<Matrix>& fin
     for (auto& part : parts_)
         part->draw(world, finals);
 }
+void CharacterResource::draw_shadow_caster(const Matrix& world, const std::vector<Matrix>& finals) {
+    for (const auto& part : parts_)
+        if (part->data().referenced_bones > finals.size())
+            throw std::runtime_error("Character part exceeds shared skeleton");
+    for (auto& part : parts_)
+        part->draw_shadow_caster(world, finals);
+}
 } // namespace genesis

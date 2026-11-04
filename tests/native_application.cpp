@@ -85,7 +85,8 @@ int main(int argc,char** argv) {
             expect(app.terrain_ready(),"Selected FLD terrain did not load during character transition");
             expect(app.terrain_material_count()==6,"Selected FLD material records were not retained");
             expect(app.terrain_surface_sound(0,0) && *app.terrain_surface_sound(0,0)=="ch_walke001.wav", "Selected FLD surface sound lookup failed");
-            expect(!app.character_preview_ready(),"Character selection resources were retained after entering loading");
+            expect(app.character_preview_ready(),"World actor was not kept for the loading scene");
+            app.frame();expect(app.world_actor_shadow_ready(),"World actor shadow was not rendered onto the terrain");
             if(argc>=3) app.capture(std::filesystem::path(argv[2]).string()+"-loading.ppm");
             std::ifstream preference(settings.preferences,std::ios::binary);std::string contents((std::istreambuf_iterator<char>(preference)),{});
             expect(contents=="José\n","Save ID did not persist only the account name");

@@ -181,4 +181,17 @@ void TerrainResource::draw(const Matrix& world) {
                             {Blend::opaque, Depth::write, Cull::none, Sampling::linear_wrap});
     }
 }
+void TerrainResource::draw_shadow(const Matrix& world, GLuint shadow_texture,
+                                  const Matrix& sampling, float opacity) {
+    ObjectUniforms object;
+    object.world = world;
+    object.reflection = sampling;
+    object.parameters = {0, 0, opacity, 1};
+    renderer_.object(object);
+    for (auto batch : batches_) {
+        renderer_.bind_images({shadow_texture, 0, 0, 0});
+        renderer_.draw_mesh(batch.mesh, VertexPass::world, PixelPass::projected_shadow,
+                            {Blend::alpha, Depth::read, Cull::none, Sampling::linear_wrap});
+    }
+}
 } // namespace genesis

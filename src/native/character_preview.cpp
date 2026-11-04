@@ -63,6 +63,22 @@ void CharacterPreview::advance(float seconds) {
     if (frame_ > float(pose_.data().end))
         frame_ = 0;
 }
+float CharacterPreview::radius() const {
+    return 1 / character_.fitted_world().m[0][0];
+}
+void CharacterPreview::draw_shadow_caster_at(const Matrix& world) {
+    character_.draw_shadow_caster(world, pose_.sample(frame_));
+}
+void CharacterPreview::draw_at(const Matrix& world) {
+    auto finals = pose_.sample(frame_);
+    character_.draw(world, finals);
+    if (cloak_) {
+        if (cloak_static_)
+            cloak_static_->draw(world, finals);
+        cloak_->pin(finals);
+        cloak_->draw(world, true);
+    }
+}
 void CharacterPreview::draw() {
     auto world = character_.fitted_world();
     world.m[3][0] += .35f;

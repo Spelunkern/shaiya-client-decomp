@@ -56,6 +56,22 @@ void SkinResource::draw_bind_pose(const Matrix& world) {
 void SkinResource::draw(const Matrix& world, const std::vector<Matrix>& finals) {
     draw_palette(world, skin_palette(data_, finals));
 }
+void SkinResource::draw_shadow_caster(const Matrix& world, const std::vector<Matrix>& finals) {
+    const auto palette = skin_palette(data_, finals);
+    renderer_.bones(palette.data(), palette.size());
+    ObjectUniforms object;
+    object.world = world;
+    object.tint = {0, 0, 0, 1};
+    object.parameters[0] = 7.5f / 255;
+    renderer_.object(object);
+    renderer_.bind_images({texture_, 0, 0, 0});
+    Style style;
+    style.blend = Blend::opaque;
+    style.depth = Depth::write;
+    style.cull = Cull::none;
+    style.sampling = Sampling::anisotropic_wrap;
+    renderer_.draw_mesh(mesh_, VertexPass::skin, PixelPass::surface, style);
+}
 void SkinResource::draw_palette(const Matrix& world, const std::vector<Matrix>& palette) {
     renderer_.bones(palette.data(), palette.size());
     ObjectUniforms object;

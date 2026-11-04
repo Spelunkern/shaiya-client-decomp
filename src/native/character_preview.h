@@ -16,6 +16,12 @@ class CharacterPreview {
                      std::optional<CharacterCloak> cloak = std::nullopt);
     void advance(float seconds);
     void draw();
+    // Draw in an arbitrary world: `world` places the character's authored
+    // (unnormalized) model space, feet at the origin.
+    void draw_at(const Matrix& world);
+    void draw_shadow_caster_at(const Matrix& world);
+    // Bounding radius of the bind-pose character in authored units.
+    float radius() const;
     float frame() const {
         return frame_;
     }

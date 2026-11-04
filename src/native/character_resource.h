@@ -13,6 +13,7 @@ class CharacterResource {
     Matrix fitted_world() const;
     void draw_bind_pose(const Matrix& world);
     void draw(const Matrix& world, const std::vector<Matrix>& skeleton_finals);
+    void draw_shadow_caster(const Matrix& world, const std::vector<Matrix>& skeleton_finals);
     std::size_t part_count() const {
         return parts_.size();
     }

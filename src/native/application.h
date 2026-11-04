@@ -2,6 +2,7 @@
 #include "connection.h"
 #include "model_resource.h"
 #include "glow.h"
+#include "shadow.h"
 #include "text.h"
 #include <chrono>
 
@@ -41,6 +42,9 @@ class Application {
         return bool(loaded_terrain_);
     }
     std::size_t terrain_material_count() const;
+    bool world_actor_shadow_ready() const {
+        return actor_shadow_.valid();
+    }
     std::optional<std::string> terrain_surface_sound(float x, float z) const;
 
   private:
@@ -50,6 +54,7 @@ class Application {
     };
     Image load_image(std::string_view path);
     void render();
+    bool draw_world_actor();
     void label(std::string_view value, float x, float y, std::uint32_t argb = 0xffffffff);
     void rectangle(float x, float y, float width, float height, std::uint32_t argb);
     void image(const Image& image, float x, float y, float width, float height, int source_x = 0,
@@ -68,6 +73,7 @@ class Application {
     AppSettings settings_;
     Renderer renderer_;
     GlowEffect glow_{renderer_};
+    ActorShadow actor_shadow_{renderer_};
     Font font_;
     Text text_;
     shaiya::portable::Archive archive_;

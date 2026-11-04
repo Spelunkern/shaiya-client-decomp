@@ -1,6 +1,7 @@
 #pragma once
 #include "math.h"
 #include "renderer.h"
+#include <optional>
 
 namespace genesis {
 // Actor projected-shadow camera, ported from native_shadow_ports.cpp
@@ -34,5 +35,41 @@ class ShadowMap {
     Renderer& renderer_;
     Renderer::TargetId target_;
     std::shared_ptr<Saved> saved_;
+};
+
+// One actor's ground shadow: a top-down caster pass into a ShadowMap. `radius`
+// is the actor's bounding radius in scene units; the 0.98-scaled extents are
+// radius / eye height, matching the original's slope-based extents.
+class ActorShadow {
+  public:
+    // The shadow target is allocated on first use.
+    explicit ActorShadow(Renderer& renderer, int size = 256) : renderer_(renderer), size_(size) {}
+    template <class Caster>
+    void render(Vec3 feet, float radius, Caster&& draw_casters) {
+        const float slope = radius / 50.f;
+        projection_ = make_shadow_projection(feet, .01f, slope, slope, .1f, 200.f);
+        if (!map_)
+            map_.emplace(renderer_, size_);
+        map_->begin(projection_);
+        draw_casters();
+        map_->end();
+        valid_ = true;
+    }
+    bool valid() const {
+        return valid_;
+    }
+    GLuint texture() const {
+        return map_->texture();
+    }
+    const Matrix& sampling() const {
+        return projection_.sampling;
+    }
+
+  private:
+    Renderer& renderer_;
+    int size_;
+    std::optional<ShadowMap> map_;
+    ShadowProjection projection_{};
+    bool valid_ = false;
 };
 } // namespace genesis

@@ -32,6 +32,11 @@ class TerrainResource {
     TerrainResource& operator=(const TerrainResource&) = delete;
     Matrix fitted_world() const;
     void draw(const Matrix& world);
+    // Second pass projecting a shadow-map texture (alpha = occlusion) onto the
+    // terrain with the original actor-shadow state: alpha blend, depth read,
+    // opacity 90/255. `sampling` maps scene-space positions to shadow UVs.
+    void draw_shadow(const Matrix& world, GLuint shadow_texture, const Matrix& sampling,
+                     float opacity = 90.f / 255);
     const TerrainFieldData& data() const {
         return data_;
     }

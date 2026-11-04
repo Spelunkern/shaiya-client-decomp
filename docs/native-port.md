@@ -53,8 +53,12 @@ launcher until the native application supports the client behavior.
   composite with the original strength rule. `ShadowProjection`/`ShadowMap`
   port the actor shadow camera, projective bias and offscreen pass scoping.
   `genesis_native --glow 1|2` runs `GlowEffect` between the 3D scene and the
-  interface (default 0, matching the original's off state); shadows are not
-  instantiated because no actor stands in the connected world yet.
+  interface (default 0, matching the original's off state); the connected
+  world's loading scene now stands the selected character on the terrain (true
+  world units, third-person camera, ground height from `world_height`) and
+  projects its top-down `ActorShadow` onto the terrain batches. The shadow is
+  the original's small top-down silhouette, mostly hidden under the feet from
+  this camera. Movement, collision and animation states are still absent.
 - `water.h` ports the water/planar-reflection orchestration: the procedural
   R8G8 signed normal source, wrapped height-to-normal conversion, ±2048 quads,
   mode 0/1 animation, projective-bias capture of reflection/refraction cameras

@@ -449,7 +449,7 @@ void Application::update_character_preview(float seconds) {
         character_preview_key_.clear();
         character_preview_failed_ = false;
     };
-    if (screen() != Screen::characters) {
+    if (screen() != Screen::characters && !(screen() == Screen::loading && loaded_terrain_)) {
         clear();
         return;
     }
@@ -539,6 +539,40 @@ void Application::label(std::string_view value, float x, float y, std::uint32_t 
     auto s = scale();
     text_.draw(value, offset[0] + x * s, offset[1] + y * s, color, s);
 }
+bool Application::draw_world_actor() {
+    auto world = connection_.world();
+    auto* player = world ? world->player() : nullptr;
+    if (!player || !loaded_terrain_ || !character_preview_)
+        return false;
+    const auto terrain_scale = default_terrain_scale();
+    const float x = player->position[0], z = player->position[2];
+    if (!std::isfinite(x) || !std::isfinite(z))
+        return false;
+    const float y = loaded_terrain_->heights().world_height(
+        x, z, terrain_scale.inverse_horizontal, terrain_scale.vertical, terrain_scale.offset,
+        terrain_scale.inverse_vertical);
+    const float radius = std::max(character_preview_->radius(), .01f);
+    const Vec3 feet = {x, y, z};
+    // Third-person framing in true world units: the character is not
+    // normalized, so terrain, shadow and actor share one coordinate system.
+    SceneUniforms scene;
+    scene.view = look_at_lh({x, y + radius * 1.3f, z - radius * 3.4f},
+                            {x, y + radius * .55f, z}, {0, 1, 0});
+    scene.view_projection =
+        multiply(scene.view, perspective_lh(.9f, float(renderer_.width()) / renderer_.height(),
+                                            radius * .05f, radius * 600));
+    Matrix placement = identity;
+    placement.m[3][0] = x;
+    placement.m[3][1] = y;
+    placement.m[3][2] = z;
+    actor_shadow_.render(feet, radius, [&] { character_preview_->draw_shadow_caster_at(placement); });
+    renderer_.scene(scene);
+    loaded_terrain_->draw(identity);
+    if (actor_shadow_.valid())
+        loaded_terrain_->draw_shadow(identity, actor_shadow_.texture(), actor_shadow_.sampling());
+    character_preview_->draw_at(placement);
+    return true;
+}
 void Application::render() {
     renderer_.clear({.025f, .035f, .06f, 1});
     auto page = screen();
@@ -553,6 +587,8 @@ void Application::render() {
     renderer_.scene(scene);
     if (character_preview_ && page == Screen::characters)
         character_preview_->draw();
+    else if (show_terrain && character_preview_ && draw_world_actor())
+        ;
     else if (show_terrain)
         loaded_terrain_->draw(loaded_terrain_->fitted_world());
     else {

@@ -49,6 +49,55 @@ int main() {
         expect(r.current_target() == 0 && r.width() == 32, "Shadow pass restores target");
         expect(r.read_pixels()[0] == 255, "Main frame untouched by shadow pass");
         expect(r.resource_counts().targets == before.targets, "No resources created per pass");
+        {
+            // End to end: black caster -> ActorShadow map -> projected onto ground.
+            Renderer g(64, 64, true);
+            ActorShadow actor(g, 64);
+            const ModelVertex caster[] = {{{-.5f, 1, -.5f}, {0, 1, 0}, {0, 0}},
+                                          {{-.5f, 1, .5f}, {0, 1, 0}, {0, 1}},
+                                          {{.5f, 1, -.5f}, {1, 0, 0}, {1, 0}},
+                                          {{.5f, 1, .5f}, {0, 1, 0}, {1, 1}}};
+            const std::uint16_t quad_indices[6] = {0, 1, 2, 2, 1, 3};
+            actor.render({0, 0, 0}, .8f, [&] {
+                ObjectUniforms object;
+                object.tint = {0, 0, 0, 1};
+                g.object(object);
+                g.bind_images({});
+                g.draw(Layout::model, VertexPass::model, PixelPass::surface, caster, 4,
+                       ShadowMap::caster_style(), quad_indices, 6);
+            });
+            expect(actor.valid(), "Shadow rendered");
+            SceneUniforms scene;
+            scene.view_projection = {{{.5f, 0, 0, 0}, {0, 0, 0, 0}, {0, .5f, 0, 0}, {0, 0, .5f, 1}}};
+            g.clear({0, 0, 0, 1});
+            g.scene(scene);
+            const std::uint32_t white = 0xffffffff;
+            const WorldVertex ground[] = {{{-2, 0, -2}, white, {0, 0}}, {{-2, 0, 2}, white, {0, 1}},
+                                          {{2, 0, -2}, white, {1, 0}}, {{2, 0, 2}, white, {1, 1}}};
+            ObjectUniforms base;
+            g.object(base);
+            Style flat;
+            flat.depth = Depth::write;
+            flat.cull = Cull::none;
+            g.draw(Layout::world, VertexPass::world, PixelPass::surface, ground, 4, flat,
+                   quad_indices, 6);
+            ObjectUniforms receiver;
+            receiver.reflection = actor.sampling();
+            receiver.parameters = {0, 0, 90.f / 255, 1};
+            g.object(receiver);
+            g.bind_images({actor.texture(), 0, 0, 0});
+            Style cast;
+            cast.blend = Blend::alpha;
+            cast.depth = Depth::read;
+            cast.cull = Cull::none;
+            cast.sampling = Sampling::linear_clamp;
+            g.draw(Layout::world, VertexPass::world, PixelPass::projected_shadow, ground, 4, cast,
+                   quad_indices, 6);
+            auto frame = g.read_pixels();
+            const int center = frame[(32 * 64 + 32) * 4], corner = frame[(4 * 64 + 4) * 4];
+            expect(corner == 255, "Ground outside the shadow stays lit");
+            expect(center < 200 && center > 100, "Ground under the caster is darkened by opacity");
+        }
         std::puts("Shadow projection checks passed");
         return 0;
     } catch (const std::exception& e) {
