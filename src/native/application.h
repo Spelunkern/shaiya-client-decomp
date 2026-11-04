@@ -6,8 +6,7 @@
 
 namespace genesis {
 class CharacterPreview;
-class TerrainHeights;
-struct TerrainFieldData;
+class TerrainResource;
 struct ItemTable;
 struct AppSettings {
     std::filesystem::path assets = "assets", font, preferences;
@@ -74,8 +73,7 @@ class Application {
     std::unique_ptr<CharacterPreview> character_preview_;
     std::string character_preview_key_;
     bool character_preview_failed_ = false;
-    std::unique_ptr<TerrainHeights> loaded_terrain_;
-    std::unique_ptr<TerrainFieldData> loaded_terrain_data_;
+    std::unique_ptr<TerrainResource> loaded_terrain_;
     std::string loaded_terrain_path_;
     std::chrono::steady_clock::time_point previous_frame_ = std::chrono::steady_clock::now();
     std::string username_, password_, status_;

@@ -14,12 +14,12 @@
 
 namespace genesis {
 std::size_t Application::terrain_material_count() const {
-    return loaded_terrain_data_ ? loaded_terrain_data_->materials.size() : 0;
+    return loaded_terrain_ ? loaded_terrain_->data().materials.size() : 0;
 }
 std::optional<std::string> Application::terrain_surface_sound(float x, float z) const {
-    if (!loaded_terrain_data_)
+    if (!loaded_terrain_)
         return std::nullopt;
-    const auto& data = *loaded_terrain_data_;
+    const auto& data = loaded_terrain_->data();
     auto material = terrain_surface_at(data.grid, data.dimension, data.materials, x, z,
                                        default_terrain_scale().inverse_horizontal);
     return material ? std::optional<std::string>(material->sound) : std::nullopt;
@@ -394,22 +394,19 @@ bool Application::frame() {
     auto map_path = current_world ? current_world->selected_map_path() : std::nullopt;
     if (!map_path) {
         loaded_terrain_.reset();
-        loaded_terrain_data_.reset();
         loaded_terrain_path_.clear();
     } else if (*map_path != loaded_terrain_path_) {
         loaded_terrain_.reset();
-        loaded_terrain_data_.reset();
         loaded_terrain_path_ = *map_path;
         try {
             auto bytes = archive_.read(*map_path);
             if (bytes.size() >= 4 && bytes[0] == 'F' && bytes[1] == 'L' && bytes[2] == 'D' &&
                 !bytes[3]) {
-                auto data = decode_terrain_field(bytes, default_terrain_scale().horizontal);
-                data.materials = decode_terrain_materials(bytes, data.prefix.bytes_consumed +
-                                                                     data.grid.bytes_consumed);
-                loaded_terrain_ = std::make_unique<TerrainHeights>(
-                    TerrainHeights::from_grid(data.dimension, std::move(data.grid)));
-                loaded_terrain_data_ = std::make_unique<TerrainFieldData>(std::move(data));
+                std::optional<std::array<float, 2>> center;
+                if (auto* player = current_world->player())
+                    center = std::array<float, 2>{player->position[0], player->position[2]};
+                loaded_terrain_ = std::make_unique<TerrainResource>(
+                    renderer_, archive_, *map_path, default_terrain_scale(), center);
             }
         } catch (const std::exception& e) {
             std::fprintf(stderr, "Terrain loading: %s\n", e.what());
@@ -519,14 +516,18 @@ void Application::render() {
     renderer_.clear({.025f, .035f, .06f, 1});
     auto page = screen();
     SceneUniforms scene;
+    bool show_terrain = bool(loaded_terrain_) && page == Screen::loading;
     Vec3 eye = character_preview_ && page == Screen::characters ? Vec3{0, .3f, -2.6f}
-                                                                : Vec3{0, .4f, -2.4f};
+             : show_terrain                                     ? Vec3{0, 1.1f, -1.9f}
+                                                                 : Vec3{0, .4f, -2.4f};
     scene.view = look_at_lh(eye, {0, 0, 0}, {0, 1, 0});
     scene.view_projection = multiply(
         scene.view, perspective_lh(1.f, float(renderer_.width()) / renderer_.height(), .01f, 100));
     renderer_.scene(scene);
     if (character_preview_ && page == Screen::characters)
         character_preview_->draw();
+    else if (show_terrain)
+        loaded_terrain_->draw(loaded_terrain_->fitted_world());
     else {
         auto world = backdrop_.fitted_world();
         world.m[3][1] += .2f;

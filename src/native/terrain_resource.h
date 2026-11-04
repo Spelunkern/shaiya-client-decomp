@@ -3,6 +3,7 @@
 #include "terrain.h"
 #include "renderer.h"
 #include <memory>
+#include <optional>
 namespace genesis {
 // Load the field grid from an archive path selected by the world session.
 TerrainFieldData load_terrain_field(const shaiya::portable::Archive& archive, std::string_view path,
@@ -20,8 +21,12 @@ void draw_terrain_region(Renderer& renderer, const TerrainHeights& heights, std:
 // connector, not a streaming world terrain system.
 class TerrainResource {
   public:
+    // center_world, when given, is a {x, z} world position (the connected
+    // player's own coordinates); the rendered span is centered on its
+    // nearest cell instead of the field's geometric middle.
     TerrainResource(Renderer& renderer, const shaiya::portable::Archive& archive,
-                    std::string_view path, const TerrainScale& scale = default_terrain_scale());
+                    std::string_view path, const TerrainScale& scale = default_terrain_scale(),
+                    std::optional<std::array<float, 2>> center_world = std::nullopt);
     ~TerrainResource();
     TerrainResource(const TerrainResource&) = delete;
     TerrainResource& operator=(const TerrainResource&) = delete;
@@ -38,7 +43,8 @@ class TerrainResource {
     }
 
   private:
-    void build_batches(const shaiya::portable::Archive& archive);
+    void build_batches(const shaiya::portable::Archive& archive,
+                       std::optional<std::array<float, 2>> center_world);
     void clear();
     struct Batch {
         Renderer::MeshId mesh;

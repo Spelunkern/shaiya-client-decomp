@@ -39,14 +39,18 @@ launcher until the native application supports the client behavior.
   per-sample attribute bytes and the original material records following
   `005b3250`/`005aefb0`. `TerrainHeights` reproduces the recovered four-triangle
   interpolated query (`005b3720`) and the signed outside-height fallback used
-  by `005a2c30`. `Application` loads the connected world's selected field and
-  answers surface-sound queries from it, but does not render it in the game
-  loop yet. `TerrainResource` batches cell meshes by their authored material
-  index and owns one detail texture per batch; the viewer's `--terrain`
-  option renders a centered span of a real field (bounded to stay under the
-  existing region draw cap) on Linux and the Windows x86-64 build under Wine.
-  World-scale streaming, per-cell collision and connecting this into the live
-  game loop remain pending.
+  by `005a2c30`. `TerrainResource` batches cell meshes by their authored
+  material index, owns one detail texture per batch and can center its
+  rendered span on a requested world position instead of the field's middle.
+  The viewer's `--terrain` option renders a centered span of a real field
+  (bounded to stay under the existing region draw cap) on Linux and the
+  Windows x86-64 build under Wine. `Application` owns one `TerrainResource`
+  for the connected world's selected field, answers surface-sound queries
+  from it and, once a character has entered a map with a resolved spawn
+  position, renders that field centered on it behind the (still
+  unimplemented) loading screen — this is not yet gameplay: no entities,
+  movement or collision exist past this point. World-scale streaming and
+  per-cell collision remain pending.
 - Standard character 3DC decoding retains the inverse-bind matrices, authored
   40-byte skin vertices and 16-bit indices. It follows the two-influence
   offsets/weighting in `00550fb0`/`005514a0` and the native actor skin pass.

@@ -53,7 +53,8 @@ void draw_terrain_region(Renderer& renderer, const TerrainHeights& heights, std:
                   indices.data(), indices.size());
 }
 TerrainResource::TerrainResource(Renderer& renderer, const shaiya::portable::Archive& archive,
-                                 std::string_view path, const TerrainScale& scale)
+                                 std::string_view path, const TerrainScale& scale,
+                                 std::optional<std::array<float, 2>> center_world)
     : renderer_(renderer), scale_(scale) {
     bounds_min_ = {std::numeric_limits<float>::infinity(), std::numeric_limits<float>::infinity(),
                    std::numeric_limits<float>::infinity()};
@@ -66,7 +67,7 @@ TerrainResource::TerrainResource(Renderer& renderer, const shaiya::portable::Arc
     heights_ = std::make_unique<TerrainHeights>(
         TerrainHeights::from_grid(data_.dimension, std::move(data_.grid)));
     try {
-        build_batches(archive);
+        build_batches(archive, center_world);
     } catch (...) {
         clear();
         throw;
@@ -83,7 +84,8 @@ void TerrainResource::clear() {
     batches_.clear();
     images_.clear();
 }
-void TerrainResource::build_batches(const shaiya::portable::Archive& archive) {
+void TerrainResource::build_batches(const shaiya::portable::Archive& archive,
+                                    std::optional<std::array<float, 2>> center_world) {
     // 005b3250's extent covers N*N height samples; a 4x4 cell needs four more
     // samples past its origin, matching terrain_cell_mesh's own bound.
     std::uint32_t cell_count = data_.dimension >= 5 ? (data_.dimension - 5) / 4 + 1 : 0;
@@ -91,7 +93,18 @@ void TerrainResource::build_batches(const shaiya::portable::Archive& archive) {
         throw std::invalid_argument("Terrain field has no renderable cells");
     constexpr std::uint32_t max_span = 96; // keeps width*height under the GPU region cap
     std::uint32_t span = std::min(cell_count, max_span);
-    std::uint32_t origin_x = (cell_count - span) / 2, origin_z = (cell_count - span) / 2;
+    auto centered_origin = [&](float world) {
+        if (!std::isfinite(world))
+            return (cell_count - span) / 2;
+        auto sample = static_cast<long double>(world) * scale_.inverse_horizontal;
+        auto cell = std::int64_t(sample / 4) - std::int64_t(span / 2);
+        cell = std::clamp<std::int64_t>(cell, 0, std::int64_t(cell_count - span));
+        return std::uint32_t(cell);
+    };
+    std::uint32_t origin_x = center_world ? centered_origin((*center_world)[0])
+                                          : (cell_count - span) / 2;
+    std::uint32_t origin_z = center_world ? centered_origin((*center_world)[1])
+                                          : (cell_count - span) / 2;
     constexpr std::uint32_t no_material = 0xffffffffu;
     std::unordered_map<std::uint32_t, std::vector<shaiya::graphics::native::WorldVertex>>
         vertices_by_material;

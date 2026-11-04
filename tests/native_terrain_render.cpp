@@ -2,6 +2,7 @@
 #include "math.h"
 #include "image.h"
 #include "asset_path.h"
+#include <cmath>
 #include <cstdio>
 #include <stdexcept>
 int main(int argc, char** argv) {
@@ -81,6 +82,21 @@ int main(int argc, char** argv) {
             if (actual_visible < 50)
                 throw std::runtime_error("Original field region did not render");
             std::printf("Original field terrain: %u visible pixels\n", actual_visible);
+            genesis::TerrainResource uncentered(renderer, archive, "data/world/0.wld");
+            genesis::TerrainResource centered(renderer, archive, "data/world/0.wld",
+                                              genesis::default_terrain_scale(),
+                                              std::array<float, 2>{0.f, 0.f});
+            if (!uncentered.mesh_count() || !centered.mesh_count())
+                throw std::runtime_error("TerrainResource produced no batches");
+            auto recover_center = [](const genesis::Matrix& world) {
+                return std::array<float, 2>{-world.m[3][0] / world.m[0][0],
+                                            -world.m[3][2] / world.m[2][2]};
+            };
+            auto center_a = recover_center(uncentered.fitted_world());
+            auto center_b = recover_center(centered.fitted_world());
+            if (std::hypot(center_b[0], center_b[1]) >= std::hypot(center_a[0], center_a[1]))
+                throw std::runtime_error(
+                    "Centered terrain region was not closer to the requested world position");
         }
         renderer.release_texture(texture);
         std::printf("OpenGL terrain cell: %u visible pixels\n", visible);
