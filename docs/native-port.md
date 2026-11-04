@@ -412,6 +412,16 @@ are the output file followed by hex addresses). Findings:
   the walk/run toggle key, the mounted heading rule, and the movement-sync
   send loop. `Application` does not use it: there is no in-world screen yet
   and the initial in-game camera setup is untraced.
+- In-world start (`00444b10`): the camera starts 5.0 behind the player along
+  its heading and 1.5 above, looking at 0.5 above; the heading from the
+  server's 16-bit orientation is (-sin a, 0, cos a) (`00598980` callers invert
+  it with acos). `Application` now creates this state for the connected world
+  and moves the selected character with the original default keys (W/S/A/D,
+  Q/E strafe, Space jump) over the terrain, third-person camera included. It is
+  local exploration: nothing is sent to the server (the 500 ms `0x0501` sync is
+  not wired), there is no collision outdoors and the actor stays in its idle
+  pose. Actor models face local -z, so the placement faces opposite the
+  camera-forward vector.
 - Traced, not yet ported: per frame the movement delta (speed * frame delta
   along the heading; strafing/backward multipliers 0.5, 1, `006bca08`, 2,
   `006bca04` by class) goes to `004383d0`, an ellipsoid collide-and-slide

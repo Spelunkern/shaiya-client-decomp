@@ -33,6 +33,30 @@ float backward_factor(std::uint8_t speed_class) {
 }
 } // namespace
 
+Vec3f heading_from_orientation(std::uint16_t degrees) {
+    long double angle = static_cast<long double>(degrees) * degrees_to_radians;
+    return {float(-std::sin(angle)), 0.f, float(std::cos(angle))};
+}
+std::uint16_t orientation_from_heading(const Vec3f& heading) {
+    float length = std::sqrt(heading[0] * heading[0] + heading[2] * heading[2]);
+    if (length == 0.f)
+        return 0;
+    long double c = static_cast<long double>(heading[2]) / length;
+    c = c > 1 ? 1 : (c < -1 ? -1 : c);
+    int degrees = int(std::acos(c) * (180.L / 3.14159265358979323846L));
+    if (heading[0] > 0.f)
+        degrees = 0x168 - degrees;
+    return std::uint16_t(degrees);
+}
+MotionState initial_motion_state(const Vec3f& position, std::uint16_t orientation) {
+    MotionState state;
+    state.position = position;
+    state.heading = heading_from_orientation(orientation);
+    state.eye = {position[0] - state.heading[0] * 5.f, position[1] - state.heading[1] * 5.f + 1.5f,
+                 position[2] - state.heading[2] * 5.f};
+    state.target = {position[0], position[1] + .5f, position[2]};
+    return state;
+}
 void step_motion(MotionState& state, const MotionKeys& keys, const MotionParameters& parameters,
                  float delta, const CollisionWorld& world, const GroundHeight& ground) {
     const float speed = net::movement_speed(parameters.speed_class, parameters.mounted,

@@ -87,6 +87,7 @@ int main(int argc,char** argv) {
             expect(app.terrain_surface_sound(0,0) && *app.terrain_surface_sound(0,0)=="ch_walke001.wav", "Selected FLD surface sound lookup failed");
             expect(app.water_ready(),"Field water definition did not load");
             expect(app.objects_ready(),"Field model placements did not load");
+            expect(app.motion_active(),"Local movement state was not created for the connected world");
             expect(app.character_preview_ready(),"World actor was not kept for the loading scene");
             app.frame();expect(app.world_objects_drawn()>0,"No world model was drawn near the player");
             expect(app.world_actor_shadow_ready(),"World actor shadow was not rendered onto the terrain");

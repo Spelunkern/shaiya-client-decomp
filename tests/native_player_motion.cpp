@@ -1,5 +1,6 @@
 #include "player_motion.h"
 #include <cmath>
+#include <cstdlib>
 #include <algorithm>
 #include <cstdio>
 #include <stdexcept>
@@ -99,6 +100,20 @@ int main() {
             air.jumping = true;
             step_motion(air, jump, walking, 1.f / 30, nullptr, flat);
             expect(!air.jump_pending, "no double jump");
+        }
+        {
+            auto h = heading_from_orientation(180);
+            expect(near(h[0], 0) && near(h[2], -1), "default heading is 180 degrees");
+            for (int degrees : {0, 30, 90, 179, 181, 270, 359}) {
+                auto heading = heading_from_orientation(std::uint16_t(degrees));
+                int back = orientation_from_heading(heading);
+                expect(std::abs(back - degrees) <= 1 || degrees == 0 || degrees == 180,
+                       "orientation round trip");
+            }
+            auto start = initial_motion_state({10, 2, 20}, 180);
+            expect(near(start.eye[0], 10) && near(start.eye[1], 3.5f) && near(start.eye[2], 25) &&
+                       near(start.target[1], 2.5f),
+                   "initial camera");
         }
         std::puts("Native player motion passed");
         return 0;

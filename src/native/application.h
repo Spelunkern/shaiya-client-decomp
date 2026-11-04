@@ -4,6 +4,8 @@
 #include "glow.h"
 #include "shadow.h"
 #include "text.h"
+#include "player_motion.h"
+#include <optional>
 #include <chrono>
 
 namespace genesis {
@@ -40,6 +42,12 @@ class Application {
     }
     bool character_preview_ready() const {
         return bool(character_preview_);
+    }
+    bool motion_active() const {
+        return motion_.has_value();
+    }
+    std::array<float, 3> motion_position() const {
+        return motion_ ? motion_->position : std::array<float, 3>{};
     }
     bool objects_ready() const {
         return bool(loaded_objects_);
@@ -100,6 +108,11 @@ class Application {
     std::unique_ptr<DungeonResource> loaded_dungeon_;
     std::unique_ptr<BasicWater> loaded_water_;
     std::unique_ptr<WorldObjects> loaded_objects_;
+    // Local exploration of the connected world with the original's default
+    // movement keys (player_motion.h); not synchronised with the server.
+    std::optional<MotionState> motion_;
+    bool jump_down_ = false;
+    void update_motion(float seconds);
     std::string loaded_terrain_path_;
     std::chrono::steady_clock::time_point previous_frame_ = std::chrono::steady_clock::now();
     std::string username_, password_, status_;

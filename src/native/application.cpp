@@ -405,6 +405,7 @@ bool Application::frame() {
         loaded_dungeon_.reset();
         loaded_water_.reset();
         loaded_objects_.reset();
+        motion_.reset();
         loaded_terrain_path_.clear();
     } else if (*map_path != loaded_terrain_path_) {
         loaded_terrain_.reset();
@@ -449,9 +450,45 @@ bool Application::frame() {
     }
     if (loaded_water_)
         loaded_water_->advance(seconds);
+    update_motion(seconds);
     update_character_preview(seconds);
     render();
     return running_;
+}
+void Application::update_motion(float seconds) {
+    auto world = connection_.world();
+    auto* player = world ? world->player() : nullptr;
+    if (!loaded_terrain_ || screen() != Screen::loading || !player ||
+        !std::isfinite(player->position[0]) || !std::isfinite(player->position[2])) {
+        motion_.reset();
+        return;
+    }
+    const auto scale = default_terrain_scale();
+    GroundHeight ground = [&](float x, float z) {
+        return loaded_terrain_->heights().world_height(x, z, scale.inverse_horizontal,
+                                                       scale.vertical, scale.offset,
+                                                       scale.inverse_vertical);
+    };
+    if (!motion_) {
+        float y = ground(player->position[0], player->position[2]) + .9f;
+        motion_ = initial_motion_state({player->position[0], y, player->position[2]},
+                                       player->details ? player->details->orientation : 180);
+    }
+    // DirectInput scancodes of the default bindings (0070a4f0) -> SDL.
+    const Uint8* keys = SDL_GetKeyboardState(nullptr);
+    MotionKeys input;
+    input.turn_left = keys[SDL_SCANCODE_A];
+    input.turn_right = keys[SDL_SCANCODE_D];
+    input.forward = keys[SDL_SCANCODE_W];
+    input.backward = keys[SDL_SCANCODE_S];
+    input.strafe_left = keys[SDL_SCANCODE_Q];
+    input.strafe_right = keys[SDL_SCANCODE_E];
+    bool jump = keys[SDL_SCANCODE_SPACE];
+    input.jump_pressed = jump && !jump_down_;
+    jump_down_ = jump;
+    MotionParameters parameters;
+    parameters.world_extent = std::int32_t(loaded_terrain_->data().prefix.field);
+    step_motion(*motion_, input, parameters, std::min(seconds, .1f), nullptr, ground);
 }
 void Application::update_character_preview(float seconds) {
     auto clear = [&] {
@@ -555,10 +592,12 @@ bool Application::draw_world_actor() {
     if (!player || !loaded_terrain_ || !character_preview_)
         return false;
     const auto terrain_scale = default_terrain_scale();
-    const float x = player->position[0], z = player->position[2];
+    const float x = motion_ ? motion_->position[0] : player->position[0],
+                z = motion_ ? motion_->position[2] : player->position[2];
     if (!std::isfinite(x) || !std::isfinite(z))
         return false;
-    const float y = loaded_terrain_->heights().world_height(
+    const float y = motion_ ? motion_->position[1] - .9f
+                            : loaded_terrain_->heights().world_height(
         x, z, terrain_scale.inverse_horizontal, terrain_scale.vertical, terrain_scale.offset,
         terrain_scale.inverse_vertical);
     const float radius = std::max(character_preview_->radius(), .01f);
@@ -566,12 +605,16 @@ bool Application::draw_world_actor() {
     // Third-person framing in true world units: the character is not
     // normalized, so terrain, shadow and actor share one coordinate system.
     SceneUniforms scene;
-    scene.view = look_at_lh({x, y + radius * 1.3f, z - radius * 3.4f},
-                            {x, y + radius * .55f, z}, {0, 1, 0});
+    scene.view = motion_ ? look_at_lh({motion_->eye[0], motion_->eye[1], motion_->eye[2]},
+                                      {motion_->target[0], motion_->target[1], motion_->target[2]},
+                                      {0, 1, 0})
+                         : look_at_lh({x, y + radius * 1.3f, z - radius * 3.4f},
+                                      {x, y + radius * .55f, z}, {0, 1, 0});
     scene.view_projection =
         multiply(scene.view, perspective_lh(.9f, float(renderer_.width()) / renderer_.height(),
                                             radius * .05f, radius * 600));
-    Matrix placement = identity;
+    Matrix placement = motion_ ? WorldObjects::placement_matrix(feet, {-motion_->heading[0], 0, -motion_->heading[2]}, {0, 1, 0}) // actor models face local -z
+                               : identity;
     placement.m[3][0] = x;
     placement.m[3][1] = y;
     placement.m[3][2] = z;

@@ -41,6 +41,15 @@ struct MotionState {
 // Outdoor ground height (005a2c30); empty inside dungeons, where the vertical
 // collision pass supplies the floor.
 using GroundHeight = std::function<float(float x, float z)>;
+// 00598980 callers (`00437050`): the orientation is the angle in degrees
+// between the heading and +z, `acos(heading.z)`, taken as 360 minus it when
+// heading.x is positive; so heading = (-sin a, 0, cos a). The player constructor
+// (`00416cc0`) starts facing (0, 0, -1), i.e. 180 degrees.
+Vec3f heading_from_orientation(std::uint16_t degrees);
+std::uint16_t orientation_from_heading(const Vec3f& heading);
+// 00444b10: the camera starts 5.0 (`006bc898`) behind the player along the
+// heading and 1.5 (`006bca08`) above it, looking at 0.5 (`006bebd0`) above.
+MotionState initial_motion_state(const Vec3f& position, std::uint16_t orientation);
 // One frame of the keyboard movement of 0043bfa0: turning (speed * delta * 15
 // degrees, rotating heading and camera about the target), forward at
 // speed * delta (half while walking), backward and strafing (Q left, E right:
