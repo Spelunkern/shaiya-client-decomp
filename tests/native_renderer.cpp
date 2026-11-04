@@ -155,6 +155,19 @@ int main() {
         expect_pixel(r, 8, 8, {255, 0, 0, 255}, "Render texture sampling orientation");
         expect_pixel(r, 48, 48, {0, 0, 255, 255}, "Render texture sampling bounds");
         r.bind_images({});
+        r.clear({0, 0, 0, 1});
+        quad(r, 0, 0, 64, 64, 0xffff0000); // opaque red background
+        quad(r, 0, 0, 64, 64, 0xff00ff00, .5f,
+             {Blend::opaque, Depth::disabled, Cull::none, Sampling::point_clamp,
+              CustomBlend{BlendFactor::blend_factor, BlendFactor::inv_blend_factor},
+              {.75f, .25f, .5f, 1}});
+        expect_pixel(r, 8, 8, {64, 64, 0, 255}, "Custom constant-factor blend matches water's pair");
+        r.clear({0, 0, 0, 1});
+        quad(r, 0, 0, 64, 64, 0xffff0000);
+        quad(r, 0, 0, 64, 64, 0xff00ff00, .5f,
+             {Blend::opaque, Depth::disabled, Cull::none, Sampling::point_clamp,
+              CustomBlend{BlendFactor::one, BlendFactor::zero}});
+        expect_pixel(r, 8, 8, {0, 255, 0, 255}, "Custom one/zero blend fully overwrites");
         try {
             r.bones(bones, 257);
             throw std::runtime_error("Bone limit was not checked");

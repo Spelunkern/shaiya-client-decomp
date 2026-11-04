@@ -24,6 +24,15 @@ launcher until the native application supports the client behavior.
   material layers, projected shadows, reflective surfaces, water, glow, gamma.
   Shader compilation and synthetic GPU tests pass; full visual parity of all
   effects is not established. The game does not yet call these passes.
+- Custom blend factors following `native_render_passes.cpp`'s `blend_state`/
+  `alpha_factor`: `Style::custom_blend` carries an explicit source/destination
+  `BlendFactor` pair (the subset the recovered client actually authors: water's
+  constant-factor blend and the 13-entry actor-effect catalog table) plus the
+  constant blend color, bypassing the named `Blend` enum exactly as the D3D11
+  reference does when a draw's style sets non-zero source/destination factors.
+  GPU pixel tests cover the constant-factor pair and a plain one/zero pair.
+  No draw site requests it yet, matching the other shader passes above; it
+  exists for water and actor-effect rendering once those are connected.
 - CPU texture decoding from DDS BC1/2/3 and packed channels, TGA/RLE and BMP.
   No IJL, WIC or legacy DLL is used by these components.
 - SAH/SAF lookup, listing, extraction and fixed-width offsets; portable SMOD
@@ -227,8 +236,9 @@ requires the selected character preview to load and unload with the UI state.
 ## Remaining migration
 
 1. Complete the rendering resource API: resource unloading/update policies, full reflection /
-   shadow / glow orchestration, custom blend factors, full font layout/outline policies, screenshots and all
-   existing texture-quality policies. Compare representative frames against DX11.
+   shadow / glow orchestration, full font layout/outline policies, screenshots and all
+   existing texture-quality policies (custom blend factors are implemented; see above).
+   Compare representative frames against DX11.
 2. Port world/model/actor/animation loaders and scene ownership. Replace fixed
    offsets and packed pointer-bearing owners with typed host structures while
    retaining disk/network layouts.

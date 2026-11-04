@@ -10,6 +10,56 @@ namespace {
 [[noreturn]] void sdl_error(const char* operation) {
     throw std::runtime_error(std::string(operation) + ": " + SDL_GetError());
 }
+GLenum blend_factor_gl(BlendFactor factor) {
+    switch (factor) {
+    case BlendFactor::zero:
+        return GL_ZERO;
+    case BlendFactor::one:
+        return GL_ONE;
+    case BlendFactor::src_color:
+        return GL_SRC_COLOR;
+    case BlendFactor::inv_src_color:
+        return GL_ONE_MINUS_SRC_COLOR;
+    case BlendFactor::src_alpha:
+        return GL_SRC_ALPHA;
+    case BlendFactor::inv_src_alpha:
+        return GL_ONE_MINUS_SRC_ALPHA;
+    case BlendFactor::dest_alpha:
+        return GL_DST_ALPHA;
+    case BlendFactor::inv_dest_alpha:
+        return GL_ONE_MINUS_DST_ALPHA;
+    case BlendFactor::dest_color:
+        return GL_DST_COLOR;
+    case BlendFactor::inv_dest_color:
+        return GL_ONE_MINUS_DST_COLOR;
+    case BlendFactor::src_alpha_sat:
+        return GL_SRC_ALPHA_SATURATE;
+    case BlendFactor::blend_factor:
+        return GL_CONSTANT_COLOR;
+    case BlendFactor::inv_blend_factor:
+        return GL_ONE_MINUS_CONSTANT_COLOR;
+    }
+    throw std::invalid_argument("Invalid blend factor");
+}
+// native_render_passes.cpp's alpha_factor(): a color-channel factor samples
+// its matching alpha-only variant; symmetric factors (ZERO, ONE, the *_ALPHA
+// pair, the constant-factor pair) are reused unchanged.
+GLenum blend_alpha_factor_gl(BlendFactor factor) {
+    switch (factor) {
+    case BlendFactor::src_color:
+        return GL_SRC_ALPHA;
+    case BlendFactor::inv_src_color:
+        return GL_ONE_MINUS_SRC_ALPHA;
+    case BlendFactor::dest_color:
+        return GL_DST_ALPHA;
+    case BlendFactor::inv_dest_color:
+        return GL_ONE_MINUS_DST_ALPHA;
+    case BlendFactor::src_alpha_sat:
+        return GL_ONE;
+    default:
+        return blend_factor_gl(factor);
+    }
+}
 GLuint shader(GL& gl, GLenum type, const char* body) {
     GLuint id = gl.CreateShader(type);
     const char* source[] = {"#version 450 core\n", glsl_uniforms, body};
@@ -394,7 +444,17 @@ void Renderer::apply(const Style& style, PixelPass pixel) {
         gl_.CullFace(style.cull == Cull::back ? GL_BACK : GL_FRONT);
     }
     gl_.FrontFace(GL_CW); // D3D11's default clockwise front face
-    if (style.blend == Blend::opaque)
+    if (style.custom_blend) {
+        gl_.Enable(GL_BLEND);
+        gl_.BlendEquation(GL_FUNC_ADD);
+        gl_.BlendColor(style.blend_factor.r, style.blend_factor.g, style.blend_factor.b,
+                       style.blend_factor.a);
+        auto color_factor = blend_factor_gl(style.custom_blend->source);
+        auto color_factor_dst = blend_factor_gl(style.custom_blend->destination);
+        gl_.BlendFuncSeparate(color_factor, color_factor_dst,
+                              blend_alpha_factor_gl(style.custom_blend->source),
+                              blend_alpha_factor_gl(style.custom_blend->destination));
+    } else if (style.blend == Blend::opaque)
         gl_.Disable(GL_BLEND);
     else {
         gl_.Enable(GL_BLEND);

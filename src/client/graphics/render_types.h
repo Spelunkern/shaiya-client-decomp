@@ -11,6 +11,25 @@ struct Color {
     float r, g, b, a;
 };
 enum class Blend : uint8_t { opaque, alpha, additive, color_add, multiply, inverse_alpha };
+// Mirrors the D3D11_BLEND factors the recovered client actually authors
+// (water's constant-factor blend and the actor effect catalog's 13-entry
+// table); SRC1_* dual-source factors are never chosen by either and are
+// deliberately not represented here.
+enum class BlendFactor : uint8_t {
+    zero,
+    one,
+    src_color,
+    inv_src_color,
+    src_alpha,
+    inv_src_alpha,
+    dest_alpha,
+    inv_dest_alpha,
+    dest_color,
+    inv_dest_color,
+    src_alpha_sat,
+    blend_factor,
+    inv_blend_factor
+};
 enum class Depth : uint8_t { disabled, read, write };
 enum class Cull : uint8_t { none, front, back };
 enum class Sampling : uint8_t {

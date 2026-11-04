@@ -3,6 +3,7 @@
 #include "graphics/render_types.h"
 #include <array>
 #include <memory>
+#include <optional>
 #include <vector>
 
 namespace genesis {
@@ -69,11 +70,20 @@ enum class PixelPass {
 };
 enum class IndexType { u16, u32 };
 
+// Mirrors native_render_passes.cpp's blend_state(): when present, replaces
+// the named Blend mode with the original client's explicit D3D11_BLEND
+// source/destination factor pair (water's constant-factor blend, authored
+// actor-effect catalog entries).
+struct CustomBlend {
+    BlendFactor source, destination;
+};
 struct Style {
     Blend blend = Blend::opaque;
     Depth depth = Depth::write;
     Cull cull = Cull::back;
     Sampling sampling = Sampling::linear_wrap;
+    std::optional<CustomBlend> custom_blend;
+    Color blend_factor = {1, 1, 1, 1};
 };
 // Match the original constant buffers byte-for-byte, independent of host ABI.
 struct alignas(16) SceneUniforms {
