@@ -375,8 +375,10 @@ are the output file followed by hex addresses). Findings:
   runs one frame of that, then gravity, `move_with_collision`, a ground clamp
   (`ground height + 0.9`) for outdoor fields, the world clamp and the camera
   follow (target 1.3 - 0.8 above the position). Q/E strafe (left/right) use cross(up, direction) with the player
-  constructor's up axis (0, 1, 0) at the same class factors as backward. Not
-  traced/ported: double-tap run (301 ms), click-to-move,
+  constructor's up axis (0, 1, 0) at the same class factors as backward. Jump (Space,
+  index 9, press edge) arms a pending jump while grounded; the next frame it
+  adds +9.0 * delta (`0071d00c`) to the vertical displacement until landing.
+  Not traced/ported: double-tap run (301 ms), click-to-move,
   the walk/run toggle key, the mounted heading rule, and the movement-sync
   send loop. `Application` does not use it: there is no in-world screen yet
   and the initial in-game camera setup is untraced.
