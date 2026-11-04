@@ -122,6 +122,15 @@ launcher until the native application supports the client behavior.
   supplies water's textures, colour and animation clock; the vertical level at
   which the ±2048 plane is placed still comes from an owner not yet traced, so
   no scene instantiates water.
+  Traced so far (`00447ef0`): the world draw has no translation for the water
+  plane, so it lies at world y = 0 (`005b3110` writes y = 0 for all four
+  vertices); the camera height (`0x02209408+196`) is tested against zero to
+  choose back-face culling (camera above) or no culling (below); the frame
+  step passed to `005a9fc0` is trunc(time * 2000) (`006bed8c`), alpha test is
+  off and alpha blending on. The UV extents derive from the constructor's
+  1024.0/256.0 arguments (`005b03d0`, call at `startup_dependency_instructions.cpp`
+  ~122800) and `+2048` (`006cf464`); that arithmetic is not yet resolved, so the
+  plane is not drawn from the application.
 - Standard character 3DC decoding retains the inverse-bind matrices, authored
   40-byte skin vertices and 16-bit indices. It follows the two-influence
   offsets/weighting in `00550fb0`/`005514a0` and the native actor skin pass.
