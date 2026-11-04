@@ -56,8 +56,17 @@ int main(int argc, char** argv) {
                         renderer.clear({0, 0, 0, 1});
                         preview.draw();
                         auto idle_pose = renderer.read_pixels();
-                        if (!preview.set_action(1) || preview.action() != 1 || preview.frame() != 0)
-                            throw std::runtime_error("Walk action was not selected");
+                        if (!preview.set_action(1) || !preview.blending() ||
+                            preview.action() != 0)
+                            throw std::runtime_error("Walk blend was not started");
+                        if (preview.set_action(2))
+                            throw std::runtime_error("Request accepted during a blend");
+                        preview.advance(.05f);
+                        if (!preview.blending())
+                            throw std::runtime_error("Blend ended early");
+                        preview.advance(.2f);
+                        if (preview.blending() || preview.action() != 1 || preview.frame() != 0)
+                            throw std::runtime_error("Walk action did not commit");
                         preview.advance(.4f);
                         renderer.clear({0, 0, 0, 1});
                         preview.draw();
@@ -66,6 +75,7 @@ int main(int argc, char** argv) {
                         if (preview.set_action(900))
                             throw std::runtime_error("Missing action slot accepted");
                         preview.set_action(0);
+                        preview.advance(.3f);
                     }
                     auto equipped = character_appearance(items, 0, 0, equipment);
                     CharacterPreview clothed(renderer, archive, std::uint8_t(race),

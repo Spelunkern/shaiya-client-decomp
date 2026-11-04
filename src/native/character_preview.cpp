@@ -55,25 +55,39 @@ CharacterPreview::CharacterPreview(Renderer& renderer, const shaiya::portable::A
     }
 }
 bool CharacterPreview::set_action(unsigned slot) {
-    if (slot == action_)
+    if (slot == transition_.current)
         return true;
     if (slot >= actions_.slots.size() || actions_.slots[slot].animation.empty())
         return false;
-    pose_ = AnimationPose(decode_animation(archive_->read(asset_path::join(
+    if (transition_.blending)
+        return false;
+    target_ = std::make_unique<AnimationPose>(decode_animation(archive_->read(asset_path::join(
         asset_path::join(asset_path::parent(profile_), "ANI"), actions_.slots[slot].animation))));
-    action_ = slot;
-    frame_ = 0;
-    return true;
+    return transition_.request(slot);
+}
+std::vector<Matrix> CharacterPreview::finals() const {
+    return transition_.blending ? pose_.blend_to_rest(frame_, *target_, transition_.phase)
+                                : pose_.sample(frame_);
 }
 void CharacterPreview::advance(float seconds) {
     if (!std::isfinite(seconds) || seconds < 0)
         throw std::invalid_argument("Invalid character-preview delta");
+    if (transition_.blending) {
+        // The sampled source frame stays frozen while the blend runs.
+        if (transition_.advance_blend(seconds)) {
+            pose_ = std::move(*target_);
+            target_.reset();
+            frame_ = 0;
+        }
+        return;
+    }
     // Ordinary state/normal action: 0041be09 advances at 30, stores float,
     // then 0041be1c/0041be75 resets mode one to ZERO strictly after clip end.
     // Drop overshoot; do not use the asset viewer's modulo preview policy.
     frame_ = float(static_cast<long double>(frame_) + static_cast<long double>(seconds) * 30);
     if (frame_ > float(pose_.data().end))
-        frame_ = actions_.slots.size() > action_ && actions_.slots[action_].mode() == 2
+        frame_ = actions_.slots.size() > transition_.current &&
+                     actions_.slots[transition_.current].mode() == 2
                      ? float(pose_.data().end)
                      : 0;
 }
@@ -81,10 +95,10 @@ float CharacterPreview::radius() const {
     return 1 / character_.fitted_world().m[0][0];
 }
 void CharacterPreview::draw_shadow_caster_at(const Matrix& world) {
-    character_.draw_shadow_caster(world, pose_.sample(frame_));
+    character_.draw_shadow_caster(world, finals());
 }
 void CharacterPreview::draw_at(const Matrix& world) {
-    auto finals = pose_.sample(frame_);
+    auto finals = this->finals();
     character_.draw(world, finals);
     if (cloak_) {
         if (cloak_static_)
