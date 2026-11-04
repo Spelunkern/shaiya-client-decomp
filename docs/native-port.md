@@ -437,7 +437,10 @@ are the output file followed by hex addresses). Findings:
   decodable local SMODs (1,033 have collision). The original files entities in
   a quadtree (`005a7650`) before testing; the native version scans placements
   within 150 units, which finds the same triangles except for exact ties.
-  Outdoor movement now sweeps against these before the terrain clamp.
+  Outdoor movement now sweeps against these before the terrain clamp. The
+  embedded dungeons of list 6 (world 0's two fortress DGs) are drawn and
+  collided through their placement matrices; their names resolve by file name
+  because the local archive keeps them under their own folders.
 - Traced, not yet ported: per frame the movement delta (speed * frame delta
   along the heading; strafing/backward multipliers 0.5, 1, `006bca08`, 2,
   `006bca04` by class) goes to `004383d0`, an ellipsoid collide-and-slide

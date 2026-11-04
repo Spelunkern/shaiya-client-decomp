@@ -29,6 +29,10 @@ DungeonResource::DungeonResource(Renderer& renderer, const shaiya::portable::Arc
         std::vector<GLuint> textures, lightmaps;
         images_.reserve(data_.textures.size() + data_.lightmaps);
         for (const auto& name : data_.textures) {
+            if (name.empty()) { // an unused authored slot: faces using it stay untextured
+                textures.push_back(0);
+                continue;
+            }
             std::string resolved;
             for (const auto& root :
                  {std::string("data/Entity/Texture"), folder, asset_path::parent(path)}) {

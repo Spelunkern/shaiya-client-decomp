@@ -105,6 +105,12 @@ int main(int argc, char** argv) {
                         4 + 516 * materials.size() + 0x100,
                     true);
                 genesis::WorldObjects objects(renderer, archive, tail);
+                if (objects.dungeon_placement_count() != 2)
+                    throw std::runtime_error("World 0 embedded dungeons were not resolved");
+                // Draw near the first embedded fortress so it loads and renders.
+                objects.draw({44.f, 1848.f}, 120.f, genesis::identity);
+                if (!objects.drawn_last())
+                    throw std::runtime_error("Embedded fortress was not drawn");
                 unsigned probes = 0, blocked = 0;
                 for (const auto& placement : objects.placements()) {
                     if (placement.list != 0 || probes >= 150)

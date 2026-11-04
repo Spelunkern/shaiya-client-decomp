@@ -3,6 +3,7 @@
 #include "model_resource.h"
 #include "world_tail.h"
 #include "collision.h"
+#include "dungeon_resource.h"
 #include <memory>
 #include <unordered_map>
 
@@ -27,6 +28,13 @@ class WorldObjects {
     const std::vector<Placement>& placements() const {
         return placements_;
     }
+    // Embedded dungeons (list 6, `00446ab0`, e.g. fortresses): drawn and
+    // collided at their placement matrix. The recovered loader formats the
+    // name under data/world/dungeon; the local archive keeps those files under
+    // their own folder, so the name is also resolved by file name.
+    std::size_t dungeon_placement_count() const {
+        return dungeon_placements_.size();
+    }
     std::size_t placement_count() const {
         return placements_.size();
     }
@@ -46,6 +54,7 @@ class WorldObjects {
                                    const std::array<float, 3>& up);
 
   private:
+    void collide_dungeons(CollisionPacket& packet);
     Renderer& renderer_;
     const shaiya::portable::Archive& archive_;
     std::array<std::vector<std::string>, 4> paths_;
@@ -59,6 +68,20 @@ class WorldObjects {
     };
     std::unordered_map<std::uint32_t, Collider> colliders_;
     std::unordered_map<std::size_t, std::vector<Vec3f>> world_vertices_;
+    struct DungeonPlacement {
+        std::uint32_t model;
+        Matrix world;
+    };
+    std::vector<std::string> dungeon_paths_;
+    std::vector<DungeonPlacement> dungeon_placements_;
+    std::unordered_map<std::uint32_t, std::unique_ptr<DungeonResource>> dungeons_;
+    std::unordered_map<std::uint32_t, bool> dungeon_failed_;
+    struct DungeonWorld {
+        std::vector<Vec3f> vertices;
+        std::vector<std::vector<std::uint16_t>> indices;
+        std::vector<Bounds> bounds;
+    };
+    std::unordered_map<std::size_t, DungeonWorld> dungeon_world_;
     std::size_t drawn_ = 0;
 };
 } // namespace genesis
