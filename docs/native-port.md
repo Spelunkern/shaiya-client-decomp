@@ -117,7 +117,11 @@ launcher until the native application supports the client behavior.
   viewer can assemble face, hair, upper, lower, hands and feet at appearance
   zero. Equipped-item appearance consumers are still pending. Reflective body parts use the actor reflection shader, where
   texture alpha controls reflection rather than surface transparency;
-  environment/specular scene inputs and complete material parity remain pending.
+  the environment input is the original's `data/spheremap.bmp` (power-of-two,
+  generated mips, loaded as `FUN_0040d480` does) and the specular material is
+  the recovered (1,1,1) power 20 from `native_actor_specular`'s three call
+  sites; lighting values from a full actor scene and complete material parity
+  remain pending.
 - ANI decoding owns authored matrices, signed frame numbers, parent links and
   independent quaternion/translation keys without converting to another asset
   format. Negative start frames are preserved, matching signed frame loads in

@@ -76,8 +76,12 @@ void SkinResource::draw_palette(const Matrix& world, const std::vector<Matrix>& 
     renderer_.bones(palette.data(), palette.size());
     ObjectUniforms object;
     object.world = world;
+    if (reflective_) {
+        object.specular = {1, 1, 1, 20};
+        object.surface[0] = 20;
+    }
     renderer_.object(object);
-    renderer_.bind_images({texture_, 0, 0, 0});
+    renderer_.bind_images({texture_, reflective_ ? environment_ : 0, 0, 0});
     renderer_.draw_mesh(mesh_, reflective_ ? VertexPass::reflective_skin : VertexPass::skin,
                         reflective_ ? PixelPass::reflection : PixelPass::surface,
                         {reflective_ ? Blend::opaque : Blend::alpha, Depth::write, Cull::none,

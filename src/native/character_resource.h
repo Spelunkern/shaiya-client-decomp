@@ -10,6 +10,9 @@ class CharacterResource {
   public:
     CharacterResource(Renderer& renderer, const shaiya::portable::Archive& archive,
                       const std::vector<CharacterPart>& parts);
+    ~CharacterResource();
+    CharacterResource(const CharacterResource&) = delete;
+    CharacterResource& operator=(const CharacterResource&) = delete;
     Matrix fitted_world() const;
     void draw_bind_pose(const Matrix& world);
     void draw(const Matrix& world, const std::vector<Matrix>& skeleton_finals);
@@ -19,6 +22,8 @@ class CharacterResource {
     }
 
   private:
+    Renderer& renderer_;
+    GLuint environment_ = 0; // data/spheremap.bmp, shared by reflective parts
     std::vector<std::unique_ptr<SkinResource>> parts_;
 };
 // Base part tables for the viewer and character preview. CharacterPreview

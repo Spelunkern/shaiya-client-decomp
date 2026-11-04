@@ -12,7 +12,8 @@ std::vector<CharacterPart> default_character_parts(std::string_view prefix) {
     return result;
 }
 CharacterResource::CharacterResource(Renderer& renderer, const shaiya::portable::Archive& archive,
-                                     const std::vector<CharacterPart>& parts) {
+                                     const std::vector<CharacterPart>& parts)
+    : renderer_(renderer) {
     if (parts.empty())
         throw std::invalid_argument("Character requires mesh parts");
     parts_.reserve(parts.size());
@@ -32,6 +33,23 @@ CharacterResource::CharacterResource(Renderer& renderer, const shaiya::portable:
         parts_.push_back(std::make_unique<SkinResource>(renderer, archive, mesh, texture,
                                                         appearance.flags != 0));
     }
+    // FUN_0040d480 loads actor environment images with power-of-two sizing
+    // and a generated mip chain.
+    const bool reflective = std::any_of(parts_.begin(), parts_.end(),
+                                        [](const auto& part) { return part->reflective(); });
+    if (reflective && archive.find("data/spheremap.bmp")) {
+        TextureLoadOptions options;
+        options.interface_power_of_two = true;
+        options.generate_mips = true;
+        environment_ = renderer.load_texture(archive.read("data/spheremap.bmp"), options);
+        for (auto& part : parts_)
+            part->set_environment(environment_);
+    }
+}
+CharacterResource::~CharacterResource() {
+    parts_.clear();
+    if (environment_)
+        renderer_.release_texture(environment_);
 }
 Matrix CharacterResource::fitted_world() const {
     std::array<float, 3> low{}, high{};
