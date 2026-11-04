@@ -123,6 +123,14 @@ launcher until the native application supports the client behavior.
   final 44-byte block. Decoding all 58 DUN and 33 FLD local descriptors ends
   exactly at the end of each file. Record payloads are retained raw: the sizes
   are established, the later gameplay consumers of their fields are not.
+- Environment block (the final 44 bytes of every descriptor): three colour
+  triples (255 / 128 / per-map) and two floats. The third triple is the world
+  fog colour (`dat_02209408+832` feeds `native_scene_fog_color`, e.g. 42,42,42
+  for world 0 and 108,130,147 for world 1); the first two are 255 and 128 in
+  every local descriptor. Fog distances are not in the file: `004354b0` starts
+  them at 50 / 100 and grows them by `006bc8b0 * frame delta` up to the graphics
+  preset maxima (`00719884`/`00719888`: 200/400, 200/300 or 150/200), so the
+  native scene does not apply fog yet.
 - Model placements (`world_objects.{h,cpp}`): the building, shape, tree and
   grass lists (`004462d0`) hold a model index and three vectors: position,
   forward and up. `005a7c00` builds the matrix with `005363d0` (right = up x
