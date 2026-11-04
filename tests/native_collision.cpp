@@ -4,6 +4,7 @@
 #include <filesystem>
 #include <stdexcept>
 #include "archive.h"
+#include "model.h"
 using namespace genesis;
 static void expect(bool ok, const char* what) {
     if (!ok)
@@ -77,6 +78,26 @@ int main(int argc, char** argv) {
             }
             }
             expect(tried > 0 && landed_count > 0, "no real dungeon floor stopped the player");
+            // Every decodable SMOD's collision section is consumed exactly.
+            std::size_t models = 0, with_collision = 0;
+            for (const auto& path : archive.paths()) {
+                if (path.size() < 5)
+                    continue;
+                auto extension = path.substr(path.size() - 5);
+                if (extension != ".SMOD" && extension != ".smod")
+                    continue;
+                StaticModel model;
+                try {
+                    model = decode_smod(archive.read(path));
+                } catch (const std::exception&) {
+                    continue; // the two known unsupported resources
+                }
+                auto collision = decode_model_collision(model);
+                ++models;
+                if (!collision.indices.empty())
+                    ++with_collision;
+            }
+            expect(models == 2162 && with_collision == 1033, "SMOD collision coverage changed");
             std::printf("Dungeon collision: %u/%u floor probes stopped by real geometry\n",
                         landed_count, tried);
         }

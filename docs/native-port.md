@@ -427,6 +427,17 @@ are the output file followed by hex addresses). Findings:
   `00443b44`: W walk 1 / run 2, S back step 3, Q left step 4, E right step 5,
   jump 8, else idle 0) blending through `ActionTransition` (five phases, `004105b0`/`0041b3a6`) toward the new clip's rest pose. Inside dungeons the same step runs against `check_dungeon` collision (no height field) from the server position treated as the feet. Actor models face local -z, so the placement faces opposite the
   camera-forward vector.
+- Entity collision (`WorldObjects::collide`, `decode_model_collision`): the
+  placed models collide through the entity method `005a8490`: sphere culling
+  (centre = the SMOD sphere through the placement matrix, radius at least 2,
+  plus 1.0 against the sweep start), then `005a1920` over the model's
+  collision triangles transformed by the placement matrix. The collision
+  section after the SMOD meshes is a 24-byte box, a flag, and (when set)
+  vertices and 16-bit triangle indices; it is consumed exactly in all 2,162
+  decodable local SMODs (1,033 have collision). The original files entities in
+  a quadtree (`005a7650`) before testing; the native version scans placements
+  within 150 units, which finds the same triangles except for exact ties.
+  Outdoor movement now sweeps against these before the terrain clamp.
 - Traced, not yet ported: per frame the movement delta (speed * frame delta
   along the heading; strafing/backward multipliers 0.5, 1, `006bca08`, 2,
   `006bca04` by class) goes to `004383d0`, an ellipsoid collide-and-slide

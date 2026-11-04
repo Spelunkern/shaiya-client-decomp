@@ -62,6 +62,51 @@ WorldObjects::WorldObjects(Renderer& renderer, const shaiya::portable::Archive& 
         }
     }
 }
+void WorldObjects::collide(CollisionPacket& packet, float broad_phase) {
+    const float px = packet.base[0] * packet.radius[0], py = packet.base[1] * packet.radius[1],
+                pz = packet.base[2] * packet.radius[2];
+    const float limit = broad_phase * broad_phase;
+    for (std::size_t index = 0; index < placements_.size(); ++index) {
+        const auto& placement = placements_[index];
+        float dx = placement.world.m[3][0] - px, dz = placement.world.m[3][2] - pz;
+        if (dx * dx + dz * dz > limit)
+            continue;
+        std::uint32_t key = std::uint32_t(placement.list) << 24 | placement.model;
+        auto& collider = colliders_[key];
+        if (!collider.loaded) {
+            collider.loaded = true;
+            try {
+                auto model = decode_smod(archive_.read(paths_[placement.list][placement.model]));
+                collider.sphere = model.sphere;
+                collider.mesh = decode_model_collision(model);
+            } catch (const std::exception&) {
+                collider.mesh = {};
+            }
+        }
+        if (collider.mesh.indices.empty())
+            continue;
+        const auto& m = placement.world.m;
+        const float cx = collider.sphere[0], cy = collider.sphere[1], cz = collider.sphere[2];
+        float wx = cx * m[0][0] + cy * m[1][0] + cz * m[2][0] + m[3][0];
+        float wy = cx * m[0][1] + cy * m[1][1] + cz * m[2][1] + m[3][1];
+        float wz = cx * m[0][2] + cy * m[1][2] + cz * m[2][2] + m[3][2];
+        float ex = wx - px, ey = wy - py, ez = wz - pz;
+        float radius = collider.sphere[3] < 2.f ? 2.f : collider.sphere[3];
+        if (std::sqrt(ex * ex + ey * ey + ez * ez) > radius + 1.f)
+            continue;
+        auto cached = world_vertices_.find(index);
+        if (cached == world_vertices_.end()) {
+            std::vector<Vec3f> vertices;
+            vertices.reserve(collider.mesh.vertices.size());
+            for (const auto& v : collider.mesh.vertices)
+                vertices.push_back({v[0] * m[0][0] + v[1] * m[1][0] + v[2] * m[2][0] + m[3][0],
+                                    v[0] * m[0][1] + v[1] * m[1][1] + v[2] * m[2][1] + m[3][1],
+                                    v[0] * m[0][2] + v[1] * m[1][2] + v[2] * m[2][2] + m[3][2]});
+            cached = world_vertices_.emplace(index, std::move(vertices)).first;
+        }
+        check_world_triangles(packet, cached->second, collider.mesh.indices);
+    }
+}
 std::size_t WorldObjects::loaded_models() const {
     return models_.size();
 }

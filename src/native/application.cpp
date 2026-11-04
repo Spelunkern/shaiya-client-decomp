@@ -487,7 +487,9 @@ void Application::update_motion(float seconds) {
                                                            scale.vertical, scale.offset,
                                                            scale.inverse_vertical);
         };
-    else // dungeons have no height field: the vertical collision pass is the floor
+    if (loaded_terrain_ && loaded_objects_)
+        collision = [&](CollisionPacket& packet) { loaded_objects_->collide(packet); };
+    if (!loaded_terrain_) // dungeons have no height field: the vertical collision pass is the floor
         collision = [&](CollisionPacket& packet) { check_dungeon(packet, loaded_dungeon_->data()); };
     if (!motion_) {
         float y = loaded_terrain_ ? ground(player->position[0], player->position[2]) + .9f

@@ -89,4 +89,45 @@ StaticModel decode_smod(const std::vector<std::uint8_t>& bytes) {
     result.trailing_data.assign(bytes.begin() + static_cast<std::ptrdiff_t>(r.offset), bytes.end());
     return result;
 }
+ModelCollision decode_model_collision(const StaticModel& model) {
+    const auto& bytes = model.trailing_data;
+    ModelCollision result;
+    auto word = [&](std::size_t at) {
+        if (at + 4 > bytes.size())
+            throw std::invalid_argument("Truncated model collision data");
+        return std::uint32_t(bytes[at]) | std::uint32_t(bytes[at + 1]) << 8 |
+               std::uint32_t(bytes[at + 2]) << 16 | std::uint32_t(bytes[at + 3]) << 24;
+    };
+    auto real = [&](std::size_t at) {
+        auto bits = word(at);
+        float value;
+        std::memcpy(&value, &bits, 4);
+        return value;
+    };
+    if (bytes.size() < 28)
+        throw std::invalid_argument("Truncated model collision data");
+    for (std::size_t i = 0; i < 3; ++i) {
+        result.minimum[i] = real(4 * i);
+        result.maximum[i] = real(12 + 4 * i);
+    }
+    if (word(24) == 0)
+        return result;
+    std::uint64_t vertex_count = word(28);
+    std::size_t at = 32;
+    if (vertex_count > (bytes.size() - at) / 12)
+        throw std::invalid_argument("Truncated model collision vertices");
+    for (std::uint64_t i = 0; i < vertex_count; ++i, at += 12)
+        result.vertices.push_back({real(at), real(at + 4), real(at + 8)});
+    std::uint64_t triangles = word(at);
+    at += 4;
+    if (triangles * 6 > bytes.size() - at)
+        throw std::invalid_argument("Truncated model collision indices");
+    for (std::uint64_t i = 0; i < triangles * 3; ++i, at += 2) {
+        std::uint16_t index = std::uint16_t(bytes[at] | bytes[at + 1] << 8);
+        if (index >= vertex_count)
+            throw std::invalid_argument("Model collision index out of range");
+        result.indices.push_back(index);
+    }
+    return result;
+}
 } // namespace genesis

@@ -1,4 +1,5 @@
 #include "terrain_resource.h"
+#include "world_objects.h"
 #include "math.h"
 #include "image.h"
 #include "asset_path.h"
@@ -97,6 +98,35 @@ int main(int argc, char** argv) {
             if (std::hypot(center_b[0], center_b[1]) >= std::hypot(center_a[0], center_a[1]))
                 throw std::runtime_error(
                     "Centered terrain region was not closer to the requested world position");
+            {
+                auto tail = genesis::decode_world_tail(
+                    world_bytes,
+                    field.prefix.bytes_consumed + field.grid.bytes_consumed +
+                        4 + 516 * materials.size() + 0x100,
+                    true);
+                genesis::WorldObjects objects(renderer, archive, tail);
+                unsigned probes = 0, blocked = 0;
+                for (const auto& placement : objects.placements()) {
+                    if (placement.list != 0 || probes >= 150)
+                        continue;
+                    ++probes;
+                    float x = placement.world.m[3][0], y = placement.world.m[3][1],
+                          z = placement.world.m[3][2];
+                    genesis::CollisionWorld world = [&](genesis::CollisionPacket& packet) {
+                        objects.collide(packet);
+                    };
+                    auto end = genesis::move_with_collision(world, {x - 25, y + 1.5f, z},
+                                                            {50, 0, 0});
+                    if (!std::isfinite(end[0]) || !std::isfinite(end[1]) || !std::isfinite(end[2]))
+                        throw std::runtime_error("World object collision produced non-finite output");
+                    if (end[0] < x + 24)
+                        ++blocked;
+                }
+                if (!probes || !blocked)
+                    throw std::runtime_error("No world building blocked a horizontal sweep");
+                std::printf("World object collision: %u/%u building probes blocked\n", blocked,
+                            probes);
+            }
         }
         renderer.release_texture(texture);
         std::printf("OpenGL terrain cell: %u visible pixels\n", visible);
