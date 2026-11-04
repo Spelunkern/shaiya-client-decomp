@@ -5,6 +5,7 @@
 #include "character_preview.h"
 #include "terrain_resource.h"
 #include "dungeon_resource.h"
+#include "basic_water.h"
 #include "sdata.h"
 #include "math.h"
 #include <openssl/crypto.h>
@@ -397,10 +398,12 @@ bool Application::frame() {
     if (!map_path) {
         loaded_terrain_.reset();
         loaded_dungeon_.reset();
+        loaded_water_.reset();
         loaded_terrain_path_.clear();
     } else if (*map_path != loaded_terrain_path_) {
         loaded_terrain_.reset();
         loaded_dungeon_.reset();
+        loaded_water_.reset();
         loaded_terrain_path_ = *map_path;
         try {
             auto bytes = archive_.read(*map_path);
@@ -414,11 +417,21 @@ bool Application::frame() {
                     center = std::array<float, 2>{player->position[0], player->position[2]};
                 loaded_terrain_ = std::make_unique<TerrainResource>(
                     renderer_, archive_, *map_path, default_terrain_scale(), center);
+                // 004518a0: the .wtr name follows the grid and material records.
+                const auto& field = loaded_terrain_->data();
+                auto water_name = decode_terrain_water_name(
+                    bytes, field.prefix.bytes_consumed + field.grid.bytes_consumed + 4 +
+                               516 * field.materials.size());
+                if (!water_name.empty())
+                    loaded_water_ = std::make_unique<BasicWater>(
+                        renderer_, archive_, "data/entity/water/" + water_name);
             }
         } catch (const std::exception& e) {
             std::fprintf(stderr, "Terrain loading: %s\n", e.what());
         }
     }
+    if (loaded_water_)
+        loaded_water_->advance(seconds);
     update_character_preview(seconds);
     render();
     return running_;
@@ -548,6 +561,8 @@ bool Application::draw_world_actor() {
     actor_shadow_.render(feet, radius, [&] { character_preview_->draw_shadow_caster_at(placement); });
     renderer_.scene(scene);
     loaded_terrain_->draw(identity);
+    if (loaded_water_)
+        loaded_water_->draw(identity, y + radius * 1.3f);
     if (actor_shadow_.valid())
         loaded_terrain_->draw_shadow(identity, actor_shadow_.texture(), actor_shadow_.sampling());
     character_preview_->draw_at(placement);

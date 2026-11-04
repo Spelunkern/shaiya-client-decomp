@@ -119,6 +119,26 @@ int main(int argc, char** argv) {
                 !bad([&] { genesis::decode_terrain_water_name(name, 1); }))
                 throw std::runtime_error("Terrain water name bounds wrong");
         }
+        {
+            genesis::WaterFrameClock clock;
+            clock.period = 150;
+            clock.frame_count = 3;
+            clock.advance(100);
+            if (clock.frame != 0 || clock.elapsed != 100)
+                throw std::runtime_error("Water clock advanced early");
+            clock.advance(50);
+            if (clock.frame != 1 || clock.elapsed != 0)
+                throw std::runtime_error("Water clock did not step at the period");
+            clock.advance(300);
+            clock.advance(300);
+            if (clock.frame != 0)
+                throw std::runtime_error("Water clock did not wrap");
+            if (genesis::water_frame_step(.05f) != 100 || genesis::water_frame_step(0.f) != 0)
+                throw std::runtime_error("Water frame step mismatch");
+            auto plane = genesis::basic_water_plane(64.f);
+            if (plane.uv_extent != 16.f || plane.min_corner != -2048.f || plane.max_corner != 3072.f)
+                throw std::runtime_error("Water plane extents mismatch");
+        }
         if (argc > 1) {
             std::filesystem::path root(argv[1]);
             auto archive = shaiya::portable::Archive::open(root / "data.sah", root / "data.saf");

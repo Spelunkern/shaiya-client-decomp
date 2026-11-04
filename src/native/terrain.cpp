@@ -117,6 +117,28 @@ WaterDefinition decode_water_definition(const std::vector<std::uint8_t>& bytes) 
     }
     return result;
 }
+void WaterFrameClock::advance(std::int32_t step) {
+    elapsed = std::int32_t(std::uint32_t(elapsed) + std::uint32_t(step));
+    if (period <= elapsed) {
+        ++frame;
+        if (frame_count <= frame)
+            frame = 0;
+        elapsed = 0;
+    }
+}
+std::int32_t water_frame_step(float frame_delta_seconds) {
+    auto value = static_cast<long double>(frame_delta_seconds) * 2000.L;
+    if (!std::isfinite(value) || value >= 2147483648.L || value <= -2147483649.L)
+        return std::numeric_limits<std::int32_t>::min();
+    return std::int32_t(value);
+}
+WaterPlane basic_water_plane(float tile_size) {
+    if (!std::isfinite(tile_size) || tile_size == 0)
+        throw std::invalid_argument("Invalid water tile size");
+    WaterPlane plane;
+    plane.uv_extent = float(1.L / tile_size * 1024.f);
+    return plane;
+}
 static TerrainGridData decode_grid_at(std::uint32_t extent, const std::vector<std::uint8_t>& bytes,
                                       std::size_t offset) {
     const auto count64 = std::uint64_t(extent) * extent;

@@ -79,6 +79,22 @@ struct WaterDefinition {
     std::vector<std::string> frames;
 };
 WaterDefinition decode_water_definition(const std::vector<std::uint8_t>& bytes);
+// 005b0610: the elapsed counter (+0x2c) accumulates the step, and once it
+// reaches the period (+0x24, signed compare) the frame advances (wrapping at
+// the frame count, +0x34) and the counter resets to zero.
+struct WaterFrameClock {
+    std::int32_t period = 0, frame_count = 0, elapsed = 0, frame = 0;
+    void advance(std::int32_t step);
+};
+// 00447ef0 passes trunc(frame_delta_seconds * 2000) (006bed8c) as the step.
+std::int32_t water_frame_step(float frame_delta_seconds);
+// 005b03d0/005b3110/005b0490: the four-vertex strip (minx,minz)->(maxx,maxz) at
+// y = 0 spans -2048 .. 1024 + 2048 on both axes with all UVs at
+// 1 / tile_size * 1024 (the constructor passes 1024.0 as the extent).
+struct WaterPlane {
+    float min_corner = -2048.f, max_corner = 3072.f, uv_extent = 0;
+};
+WaterPlane basic_water_plane(float tile_size);
 // 005b3360: inclusive coordinate clamp, but row pitch is extent itself.
 // Keep the original address rule; do not silently change to extent+1.
 class TerrainHeights {
