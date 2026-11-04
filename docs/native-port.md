@@ -33,6 +33,18 @@ launcher until the native application supports the client behavior.
   GPU pixel tests cover the constant-factor pair and a plain one/zero pair.
   No draw site requests it yet, matching the other shader passes above; it
   exists for water and actor-effect rendering once those are connected.
+- Texture quality-policy algorithms from `load_texture`'s non-DDS-passthrough
+  path: `texture_box_mip` (2x2 box-filtered mip, edge taps clamp),
+  `texture_resize_triangle` (the original's separable triangle-filter resize,
+  including its wrapped, not clamped, out-of-range sample addressing) and
+  `texture_apply_color_key` (24-bit RGB match zeroes alpha). CPU tests cover
+  mip averaging/clamping, that resizing a solid color reproduces it at
+  several target sizes, that a two-column image actually blends instead of
+  nearest-sampling, and color-key matching. `Renderer::texture_rgba` still
+  only offers GPU `glGenerateMipmap` mip generation; these CPU algorithms are
+  not wired into any texture upload path yet, matching the other render-API
+  primitives above — they exist for the `requested_width`/`requested_height`/
+  `level_limit`/`color_key` policies once something authors them.
 - CPU texture decoding from DDS BC1/2/3 and packed channels, TGA/RLE and BMP.
   No IJL, WIC or legacy DLL is used by these components.
 - SAH/SAF lookup, listing, extraction and fixed-width offsets; portable SMOD
@@ -236,9 +248,9 @@ requires the selected character preview to load and unload with the UI state.
 ## Remaining migration
 
 1. Complete the rendering resource API: resource unloading/update policies, full reflection /
-   shadow / glow orchestration, full font layout/outline policies, screenshots and all
-   existing texture-quality policies (custom blend factors are implemented; see above).
-   Compare representative frames against DX11.
+   shadow / glow orchestration, full font layout/outline policies and screenshots (custom
+   blend factors and the texture quality-policy algorithms are implemented but not wired
+   into any call site; see above). Compare representative frames against DX11.
 2. Port world/model/actor/animation loaders and scene ownership. Replace fixed
    offsets and packed pointer-bearing owners with typed host structures while
    retaining disk/network layouts.

@@ -535,7 +535,111 @@ DecodeStatus decode_dds_level(const Dds& dds, std::uint32_t level, CpuImage& ima
     return ok;
 }
 
+float triangle_integral(float value) {
+    if (value <= -1)
+        return 0;
+    if (value <= 0)
+        return .5f * (value + 1) * (value + 1);
+    if (value < 1)
+        return 1 - .5f * (1 - value) * (1 - value);
+    return 1;
+}
+int floor_integer(float value) {
+    int result = int(value);
+    return float(result) > value ? result - 1 : result;
+}
+int ceil_integer(float value) {
+    int result = int(value);
+    return float(result) < value ? result + 1 : result;
+}
+std::uint32_t wrapped(int value, std::uint32_t size) {
+    int result = value % int(size);
+    return std::uint32_t(result < 0 ? result + int(size) : result);
+}
 } // namespace
+std::uint32_t texture_mip_count(std::uint32_t width, std::uint32_t height) {
+    return mip_count(width, height);
+}
+std::uint32_t texture_power_of_two(std::uint32_t size) {
+    return power_of_two(size);
+}
+Image texture_box_mip(const Image& source) {
+    if (!source.width || !source.height ||
+        source.pixels.size() != size_t(source.width) * source.height * 4)
+        throw std::invalid_argument("Invalid box-mip source image");
+    Image image;
+    image.width = half(source.width);
+    image.height = half(source.height);
+    image.pixels.resize(size_t(image.width) * image.height * 4);
+    for (std::uint32_t y = 0; y < image.height; ++y)
+        for (std::uint32_t x = 0; x < image.width; ++x)
+            for (std::uint32_t channel = 0; channel < 4; ++channel) {
+                std::uint32_t sum = 0;
+                for (std::uint32_t dy = 0; dy < 2; ++dy)
+                    for (std::uint32_t dx = 0; dx < 2; ++dx)
+                        sum += source.pixels[(size_t(smaller(source.height - 1, y * 2 + dy)) *
+                                                  source.width +
+                                              smaller(source.width - 1, x * 2 + dx)) *
+                                                 4 +
+                                             channel];
+                image.pixels[(size_t(y) * image.width + x) * 4 + channel] =
+                    std::uint8_t((sum + 2) / 4);
+            }
+    return image;
+}
+Image texture_resize_triangle(const Image& source, std::uint32_t width, std::uint32_t height) {
+    if (!source.width || !source.height ||
+        source.pixels.size() != size_t(source.width) * source.height * 4 || !width || !height)
+        throw std::invalid_argument("Invalid triangle-resize arguments");
+    Image image;
+    image.width = width;
+    image.height = height;
+    image.pixels.resize(size_t(width) * height * 4);
+    std::vector<float> horizontal(size_t(width) * source.height * 4);
+    float ratio = float(source.width) / float(width);
+    for (std::uint32_t y = 0; y < source.height; ++y)
+        for (std::uint32_t x = 0; x < width; ++x) {
+            float center = (float(x) + .5f) * ratio - .5f, sum[4] = {};
+            int last = ceil_integer(center + ratio * .5f + 1);
+            for (int i = floor_integer(center - ratio * .5f - 1); i <= last; ++i) {
+                float weight = (triangle_integral(center + ratio * .5f - float(i)) -
+                                triangle_integral(center - ratio * .5f - float(i))) /
+                               ratio;
+                const auto* pixel =
+                    source.pixels.data() + (size_t(y) * source.width + wrapped(i, source.width)) * 4;
+                for (std::uint32_t c = 0; c < 4; ++c)
+                    sum[c] += pixel[c] * weight;
+            }
+            std::memcpy(horizontal.data() + (size_t(y) * width + x) * 4, sum, sizeof(sum));
+        }
+    ratio = float(source.height) / float(height);
+    for (std::uint32_t y = 0; y < height; ++y)
+        for (std::uint32_t x = 0; x < width; ++x) {
+            float center = (float(y) + .5f) * ratio - .5f, sum[4] = {};
+            int last = ceil_integer(center + ratio * .5f + 1);
+            for (int i = floor_integer(center - ratio * .5f - 1); i <= last; ++i) {
+                float weight = (triangle_integral(center + ratio * .5f - float(i)) -
+                                triangle_integral(center - ratio * .5f - float(i))) /
+                               ratio;
+                const auto* pixel =
+                    horizontal.data() + (size_t(wrapped(i, source.height)) * width + x) * 4;
+                for (std::uint32_t c = 0; c < 4; ++c)
+                    sum[c] += pixel[c] * weight;
+            }
+            for (std::uint32_t c = 0; c < 4; ++c)
+                image.pixels[(size_t(y) * width + x) * 4 + c] =
+                    std::uint8_t(sum[c] <= 0 ? 0 : sum[c] >= 255 ? 255 : std::uint32_t(sum[c] + .5f));
+        }
+    return image;
+}
+void texture_apply_color_key(Image& image, std::uint32_t color) {
+    std::uint32_t rgb = color & 0xffffffu;
+    for (size_t i = 0, count = size_t(image.width) * image.height; i < count; ++i) {
+        auto* pixel = image.pixels.data() + i * 4;
+        if ((std::uint32_t(pixel[0]) << 16 | std::uint32_t(pixel[1]) << 8 | pixel[2]) == rgb)
+            pixel[3] = 0;
+    }
+}
 Image decode_image(const std::vector<std::uint8_t>& bytes) {
     if (bytes.empty())
         throw std::runtime_error("Empty image");
