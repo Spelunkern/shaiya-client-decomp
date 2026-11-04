@@ -54,6 +54,29 @@ TerrainFilePrefix decode_terrain_prefix(const std::vector<std::uint8_t>& bytes) 
                    std::uint32_t(bytes[6]) << 16 | std::uint32_t(bytes[7]) << 24;
     return result;
 }
+WorldKind decode_world_kind(const std::vector<std::uint8_t>& bytes) {
+    if (bytes.size() >= 4 && !bytes[3]) {
+        if (bytes[0] == 'F' && bytes[1] == 'L' && bytes[2] == 'D')
+            return WorldKind::field;
+        if (bytes[0] == 'D' && bytes[1] == 'U' && bytes[2] == 'N')
+            return WorldKind::dungeon;
+    }
+    throw std::invalid_argument("Unknown world descriptor tag");
+}
+DungeonDescriptor decode_dungeon_descriptor(const std::vector<std::uint8_t>& bytes) {
+    if (decode_world_kind(bytes) != WorldKind::dungeon)
+        throw std::invalid_argument("World descriptor is not a dungeon");
+    DungeonDescriptor result;
+    if (bytes.size() < result.bytes_consumed)
+        throw std::invalid_argument("Truncated dungeon name");
+    auto first = bytes.begin() + 4;
+    auto end = std::find(first, first + 0x100, 0);
+    if (end == first + 0x100 || end == first)
+        throw std::invalid_argument("Unterminated or empty dungeon name");
+    result.name.assign(first, end);
+    result.path = "data/world/dungeon/" + result.name;
+    return result;
+}
 static TerrainGridData decode_grid_at(std::uint32_t extent, const std::vector<std::uint8_t>& bytes,
                                       std::size_t offset) {
     const auto count64 = std::uint64_t(extent) * extent;

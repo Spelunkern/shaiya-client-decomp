@@ -9,6 +9,7 @@
 namespace genesis {
 class CharacterPreview;
 class TerrainResource;
+class DungeonResource;
 struct ItemTable;
 struct AppSettings {
     std::filesystem::path assets = "assets", font, preferences;
@@ -37,6 +38,9 @@ class Application {
     }
     bool character_preview_ready() const {
         return bool(character_preview_);
+    }
+    bool dungeon_ready() const {
+        return bool(loaded_dungeon_);
     }
     bool terrain_ready() const {
         return bool(loaded_terrain_);
@@ -84,6 +88,7 @@ class Application {
     std::string character_preview_key_;
     bool character_preview_failed_ = false;
     std::unique_ptr<TerrainResource> loaded_terrain_;
+    std::unique_ptr<DungeonResource> loaded_dungeon_;
     std::string loaded_terrain_path_;
     std::chrono::steady_clock::time_point previous_frame_ = std::chrono::steady_clock::now();
     std::string username_, password_, status_;

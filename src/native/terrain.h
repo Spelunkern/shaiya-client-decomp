@@ -47,6 +47,21 @@ struct TerrainFieldData {
 };
 // FLD stream: the grid read follows the eight-byte prefix for the field branch.
 TerrainFieldData decode_terrain_field(const std::vector<std::uint8_t>& bytes, float spacing);
+// 004518a0: the world descriptor opens with a four-byte tag, "FLD\0" for an
+// outdoor field (compared with 006bf8d4) or "DUN\0" for an indoor dungeon
+// (006bf8d0). Anything else makes the load fail.
+enum class WorldKind { field, dungeon };
+WorldKind decode_world_kind(const std::vector<std::uint8_t>& bytes);
+// Dungeon branch: a 0x100-byte buffer follows the tag. Only the text up to the
+// first NUL is meaningful (the rest is stale stack content stored by the
+// authoring tool); 005a59f0 formats it with "%s\\%s" after "data/world/dungeon"
+// to open the DG. The remaining stream (object lists, lights, sounds) is the
+// part shared with the field branch and is not decoded here.
+struct DungeonDescriptor {
+    std::string name, path;
+    std::size_t bytes_consumed = 0x104;
+};
+DungeonDescriptor decode_dungeon_descriptor(const std::vector<std::uint8_t>& bytes);
 // 005b3360: inclusive coordinate clamp, but row pitch is extent itself.
 // Keep the original address rule; do not silently change to extent+1.
 class TerrainHeights {

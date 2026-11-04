@@ -4,6 +4,7 @@
 #include "image.h"
 #include "character_preview.h"
 #include "terrain_resource.h"
+#include "dungeon_resource.h"
 #include "sdata.h"
 #include "math.h"
 #include <openssl/crypto.h>
@@ -395,14 +396,19 @@ bool Application::frame() {
     auto map_path = current_world ? current_world->selected_map_path() : std::nullopt;
     if (!map_path) {
         loaded_terrain_.reset();
+        loaded_dungeon_.reset();
         loaded_terrain_path_.clear();
     } else if (*map_path != loaded_terrain_path_) {
         loaded_terrain_.reset();
+        loaded_dungeon_.reset();
         loaded_terrain_path_ = *map_path;
         try {
             auto bytes = archive_.read(*map_path);
-            if (bytes.size() >= 4 && bytes[0] == 'F' && bytes[1] == 'L' && bytes[2] == 'D' &&
-                !bytes[3]) {
+            if (decode_world_kind(bytes) == WorldKind::dungeon) {
+                // 004518a0 DUN branch: the descriptor names the DG under data/world/dungeon.
+                loaded_dungeon_ = std::make_unique<DungeonResource>(
+                    renderer_, archive_, decode_dungeon_descriptor(bytes).path);
+            } else {
                 std::optional<std::array<float, 2>> center;
                 if (auto* player = current_world->player())
                     center = std::array<float, 2>{player->position[0], player->position[2]};
@@ -552,6 +558,7 @@ void Application::render() {
     auto page = screen();
     SceneUniforms scene;
     bool show_terrain = bool(loaded_terrain_) && page == Screen::loading;
+    bool show_dungeon = bool(loaded_dungeon_) && page == Screen::loading;
     Vec3 eye = character_preview_ && page == Screen::characters ? Vec3{0, .3f, -2.6f}
              : show_terrain                                     ? Vec3{0, 1.1f, -1.9f}
                                                                  : Vec3{0, .4f, -2.4f};
@@ -565,6 +572,8 @@ void Application::render() {
         ;
     else if (show_terrain)
         loaded_terrain_->draw(loaded_terrain_->fitted_world());
+    else if (show_dungeon)
+        loaded_dungeon_->draw(loaded_dungeon_->fitted_world());
     else {
         auto world = backdrop_.fitted_world();
         world.m[3][1] += .2f;

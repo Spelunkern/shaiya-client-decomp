@@ -50,6 +50,41 @@ int main(int argc, char** argv) {
         }
         if (!bad_prefix)
             throw std::runtime_error("Truncated FLD prefix accepted");
+        {
+            std::vector<std::uint8_t> dun(0x104, 0xcc);
+            const char name[] = "A.dg";
+            dun[0] = 'D';
+            dun[1] = 'U';
+            dun[2] = 'N';
+            dun[3] = 0;
+            std::memcpy(&dun[4], name, sizeof name);
+            if (genesis::decode_world_kind(dun) != genesis::WorldKind::dungeon)
+                throw std::runtime_error("DUN tag not recognised");
+            auto d = genesis::decode_dungeon_descriptor(dun);
+            if (d.name != "A.dg" || d.path != "data/world/dungeon/A.dg" || d.bytes_consumed != 0x104)
+                throw std::runtime_error("Dungeon descriptor decoding failed");
+            auto expect_throw = [](auto&& f, const char* what) {
+                try {
+                    f();
+                } catch (const std::invalid_argument&) {
+                    return;
+                }
+                throw std::runtime_error(what);
+            };
+            auto unterminated = dun;
+            std::fill(unterminated.begin() + 4, unterminated.end(), 'x');
+            expect_throw([&] { genesis::decode_dungeon_descriptor(unterminated); },
+                         "Unterminated dungeon name accepted");
+            auto truncated = dun;
+            truncated.resize(0x103);
+            expect_throw([&] { genesis::decode_dungeon_descriptor(truncated); },
+                         "Truncated dungeon descriptor accepted");
+            auto bad_tag = dun;
+            bad_tag[0] = 'X';
+            expect_throw([&] { genesis::decode_world_kind(bad_tag); }, "Bad world tag accepted");
+            expect_throw([&] { genesis::decode_dungeon_descriptor(prefix); },
+                         "FLD accepted as dungeon");
+        }
         if (argc > 1) {
             std::filesystem::path root(argv[1]);
             auto archive = shaiya::portable::Archive::open(root / "data.sah", root / "data.saf");
@@ -101,6 +136,10 @@ int main(int argc, char** argv) {
                     ++fields;
                 } else if (world.size() >= 4 && world[0] == 'D' && world[1] == 'U' &&
                            world[2] == 'N' && world[3] == 0) {
+                    auto descriptor = genesis::decode_dungeon_descriptor(world);
+                    if (!archive.find(descriptor.path))
+                        throw std::runtime_error("Dungeon descriptor names a missing DG: " +
+                                                 descriptor.path);
                     ++dungeons;
                 }
             }

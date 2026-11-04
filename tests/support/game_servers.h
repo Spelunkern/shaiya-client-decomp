@@ -10,6 +10,7 @@ public:
     Endpoint login,world;
     bool reject_first=true,selected=false,entered=false;
     unsigned attempts=0;
+    std::uint16_t map=0;
     std::array<std::uint8_t,8> equipment_types{},equipment_ids{};
     std::string expected_user="Jos\xe9",expected_password="retry";
     GameServers() {
@@ -47,7 +48,7 @@ public:
                 for(unsigned slot=0;slot<5;++slot) {
                     Writer data;data.u8(slot);data.u32(slot==2?1234:0);
                     if(slot==2) {
-                        data.u32(0);data.u16(42);for(int i=0;i<7;++i) data.u8(1);data.u16(0);
+                        data.u32(0);data.u16(42);for(int i=0;i<7;++i) data.u8(1);data.u16(map);
                         for(int i=0;i<9;++i) data.u16(100+i);
                         data.append(equipment_types.data(),equipment_types.size());
                         data.append(equipment_ids.data(),equipment_ids.size());

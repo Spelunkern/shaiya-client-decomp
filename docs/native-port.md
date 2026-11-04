@@ -101,6 +101,17 @@ launcher until the native application supports the client behavior.
   unimplemented) loading screen — this is not yet gameplay: no entities,
   movement or collision exist past this point. World-scale streaming and
   per-cell collision remain pending.
+- World descriptors: `decode_world_kind` follows `004518a0`, which picks the
+  `FLD\0` (`006bf8d4`) or `DUN\0` (`006bf8d0`) branch from the four-byte tag.
+  `decode_dungeon_descriptor` reads the DUN branch's 0x100-byte name buffer
+  (only the text before the first NUL is meaningful; the remainder is stale
+  authoring-tool stack data) and forms `data/world/dungeon/<name>` as `005a59f0`
+  does with `%s\%s`. All 58 local DUN `.wld` resolve to an existing DG.
+  `Application` loads the named `DungeonResource` for indoor maps and draws it
+  on the loading screen. The stream after the name (object lists via
+  `004462d0`, further lists, lights, sounds) is shared with the field branch,
+  begins at byte 0x104 for DUN and is not decoded yet; no player placement,
+  collision or octree culling inside dungeons exists.
 - Standard character 3DC decoding retains the inverse-bind matrices, authored
   40-byte skin vertices and 16-bit indices. It follows the two-influence
   offsets/weighting in `00550fb0`/`005514a0` and the native actor skin pass.

@@ -92,6 +92,25 @@ int main(int argc,char** argv) {
             expect(contents=="José\n","Save ID did not persist only the account name");
             key(app,SDLK_ESCAPE);expect(!app.frame(),"Escape did not close native application");
         }
+        // An indoor DUN descriptor selects its DG instead of a terrain field.
+        {
+            fixture::GameServers indoor;indoor.reject_first=false;indoor.expected_password="secret";indoor.map=106;
+            indoor.equipment_types=server.equipment_types;indoor.equipment_ids=server.equipment_ids;
+            auto dungeon_settings=settings;dungeon_settings.login_port=indoor.login.port();dungeon_settings.world_port=indoor.world.port();
+            dungeon_settings.preferences=temp/"dungeon-id.txt";
+            Application app(dungeon_settings);app.frame();
+            text(app,"José");key(app,SDLK_TAB);text(app,"secret");key(app,SDLK_RETURN);app.frame();
+            auto deadline=std::chrono::steady_clock::now()+std::chrono::seconds(12);
+            while(std::chrono::steady_clock::now()<deadline && !(app.screen()==Application::Screen::servers && app.can_confirm())) {indoor.pump();app.frame();SDL_Delay(1);}
+            click(app,480,247);click(app,510,566);app.frame();
+            while(std::chrono::steady_clock::now()<deadline && !(app.screen()==Application::Screen::characters && app.can_confirm())) {indoor.pump();app.frame();SDL_Delay(1);}
+            click(app,110,195);click(app,510,696);app.frame();
+            while(std::chrono::steady_clock::now()<deadline && !(indoor.entered && app.screen()==Application::Screen::loading)) {indoor.pump();app.frame();SDL_Delay(1);}
+            expect(indoor.entered && app.screen()==Application::Screen::loading,"Dungeon fixture did not reach loading");
+            app.frame();
+            expect(app.dungeon_ready() && !app.terrain_ready(),"Selected DUN descriptor did not load its dungeon");
+            if(argc>=3) app.capture(std::filesystem::path(argv[2]).string()+"-dungeon.ppm");
+        }
         // Saved ID is restored through the normal constructor and UI input.
         {
             Application restored(settings);restored.frame();expect(!restored.can_confirm(),"Restored a password with Save ID");
