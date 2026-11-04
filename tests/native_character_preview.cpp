@@ -50,6 +50,23 @@ int main(int argc, char** argv) {
                         throw std::runtime_error(
                             "Character profile preview is missing visible surfaces: " +
                             preview.profile());
+                    {
+                        // Walk (slot 1) must pose differently from idle and reset the frame.
+                        preview.advance(.4f);
+                        renderer.clear({0, 0, 0, 1});
+                        preview.draw();
+                        auto idle_pose = renderer.read_pixels();
+                        if (!preview.set_action(1) || preview.action() != 1 || preview.frame() != 0)
+                            throw std::runtime_error("Walk action was not selected");
+                        preview.advance(.4f);
+                        renderer.clear({0, 0, 0, 1});
+                        preview.draw();
+                        if (renderer.read_pixels() == idle_pose)
+                            throw std::runtime_error("Walk action did not change the pose");
+                        if (preview.set_action(900))
+                            throw std::runtime_error("Missing action slot accepted");
+                        preview.set_action(0);
+                    }
                     auto equipped = character_appearance(items, 0, 0, equipment);
                     CharacterPreview clothed(renderer, archive, std::uint8_t(race),
                                              std::uint8_t(job), std::uint8_t(gender), equipped);

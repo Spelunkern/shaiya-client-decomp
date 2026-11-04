@@ -511,6 +511,22 @@ void Application::update_motion(float seconds) {
     parameters.world_extent =
         loaded_terrain_ ? std::int32_t(loaded_terrain_->data().prefix.field) : 0;
     step_motion(*motion_, input, parameters, std::min(seconds, .1f), collision, ground);
+    // 0043bfa0 (0x441b66 dispatch): forward plays walk (1) or run (2), S the back
+    // step (3), Q/E the left/right step (4/5), a jump action 8, otherwise idle.
+    if (character_preview_) {
+        unsigned action = 0;
+        if (!motion_->grounded || motion_->jumping)
+            action = 8;
+        else if (input.forward)
+            action = parameters.running ? 2 : 1;
+        else if (input.backward)
+            action = 3;
+        else if (input.strafe_left)
+            action = 4;
+        else if (input.strafe_right)
+            action = 5;
+        character_preview_->set_action(action);
+    }
     // 00437050: while a movement key is held the position is sent every
     // 500 ms (state flag 0x80 clear); releasing sends one final packet with 0x80
     // set. 0x40 marks a grounded player.

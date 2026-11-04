@@ -32,7 +32,8 @@ CharacterPreview::CharacterPreview(Renderer& renderer, const shaiya::portable::A
                                    const CharacterAppearance& appearance,
                                    std::optional<CharacterCloak> cloak)
     : profile_(character_profile(race, job, gender)),
-      character_(renderer, archive, parts(profile_, appearance)), pose_(normal(archive, profile_)) {
+      character_(renderer, archive, parts(profile_, appearance)), pose_(normal(archive, profile_)),
+      archive_(&archive), actions_(decode_actions(archive.read(profile_ + "_action.alt"))) {
     if (cloak) {
         auto path = character_cloth_catalog(race, job, gender, cloak->variant);
         auto catalog = decode_cloth_catalog(archive.read(path));
@@ -53,6 +54,17 @@ CharacterPreview::CharacterPreview(Renderer& renderer, const shaiya::portable::A
                 texture);
     }
 }
+bool CharacterPreview::set_action(unsigned slot) {
+    if (slot == action_)
+        return true;
+    if (slot >= actions_.slots.size() || actions_.slots[slot].animation.empty())
+        return false;
+    pose_ = AnimationPose(decode_animation(archive_->read(asset_path::join(
+        asset_path::join(asset_path::parent(profile_), "ANI"), actions_.slots[slot].animation))));
+    action_ = slot;
+    frame_ = 0;
+    return true;
+}
 void CharacterPreview::advance(float seconds) {
     if (!std::isfinite(seconds) || seconds < 0)
         throw std::invalid_argument("Invalid character-preview delta");
@@ -61,7 +73,9 @@ void CharacterPreview::advance(float seconds) {
     // Drop overshoot; do not use the asset viewer's modulo preview policy.
     frame_ = float(static_cast<long double>(frame_) + static_cast<long double>(seconds) * 30);
     if (frame_ > float(pose_.data().end))
-        frame_ = 0;
+        frame_ = actions_.slots.size() > action_ && actions_.slots[action_].mode() == 2
+                     ? float(pose_.data().end)
+                     : 0;
 }
 float CharacterPreview::radius() const {
     return 1 / character_.fitted_world().m[0][0];
