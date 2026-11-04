@@ -341,11 +341,16 @@ are the output file followed by hex addresses). Findings:
   `0x0502`/`0x0503` target packets, and the forward speed rule: base 5.0
   (`004092a7`), speed class byte +0x281 shifting it -2/-1/0/+1/+2 for classes
   0..4 and zeroing it for 0xff, mounted actors 7.0 (8.0 for mount kind 1).
+- Also ported: the vertical velocity step (`(delta * 2.8 + 1) * v`, floor -20,
+  landing -2.98) and the world clamp (x, z in [1, extent - 1]; y at or below
+  -0.4 is held there with the water flag set, which matches the water plane at
+  y = 0). The ground clamp (`005a2c30` + 0.9) and its jump/landing flags are
+  traced but entangled with `0043bfa0` state and are not ported.
 - Traced, not yet ported: per frame the movement delta (speed * frame delta
   along the heading; strafing/backward multipliers 0.5, 1, `006bca08`, 2,
   `006bca04` by class) goes to `004383d0`, an ellipsoid collide-and-slide
   with radii (0.3, 0.9, 0.3) (`3e99999a`, `3f666666`, `3e99999a`) over
-  `00437b60`, which queries terrain triangles through `005a2c70`/`005b3a80`
+  `00437b60` (recursive sweep, at most six passes, stops when the residual is below 0.05 `006bc864`), which queries the octree (`005a4750`), entity lists (`005a7510`/`005a6fb0`, `00537f40`) and terrain triangles through `005a2c70`/`005b3a80`
   (world scaled by `0224e640`); its result becomes the new position at +0x10.
   Afterwards gravity (`00708c98`, integrated with the frame delta) and a
   ground clamp to `005a2c30(x, z)` plus the `006bc868` offset apply

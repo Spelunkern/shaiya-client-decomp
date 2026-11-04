@@ -1,5 +1,6 @@
 #include "movement.h"
 #include <cstdio>
+#include <cmath>
 #include <limits>
 #include <stdexcept>
 using namespace genesis::net;
@@ -37,6 +38,19 @@ int main() {
         expect(movement_speed(2, true, 0) == 7.f && movement_speed(2, true, 1) == 8.f &&
                    movement_speed(0xff, true, 5) == 7.f,
                "mounted speeds");
+        {
+            float v = landing_velocity;
+            v = fall_velocity_step(v, 0.05f);
+            expect(std::fabs(v - (-2.98f * (0.05f * 2.8f + 1.f))) < 1e-5f, "gravity step");
+            for (int i = 0; i < 200; ++i)
+                v = fall_velocity_step(v, 0.05f);
+            expect(v == -20.f, "terminal velocity");
+            auto bounds = clamp_to_world({-5.f, 3.f, 5000.f}, 2049);
+            expect(bounds.position[0] == 1.f && bounds.position[2] == 2048.f && !bounds.in_water,
+                   "world clamp");
+            auto wet = clamp_to_world({10.f, -1.f, 10.f}, 2049);
+            expect(wet.in_water && wet.position[1] == -0.4f, "water clamp");
+        }
         std::puts("Native movement packet and speed contract passed");
         return 0;
     } catch (const std::exception& e) {

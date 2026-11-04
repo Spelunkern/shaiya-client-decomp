@@ -45,4 +45,24 @@ float movement_speed(std::uint8_t speed_class, bool mounted, std::uint32_t mount
         speed = mount_kind == 1 ? 8.f : 7.f;
     return speed;
 }
+float fall_velocity_step(float velocity, float frame_delta) {
+    velocity = float((static_cast<long double>(frame_delta) * 2.8f + 1.f) * velocity);
+    return velocity < -20.f ? -20.f : velocity;
+}
+WorldBounds clamp_to_world(std::array<float, 3> position, std::int32_t world_extent) {
+    WorldBounds result{position, false};
+    auto& p = result.position;
+    if (p[1] <= -0.4f) {
+        result.in_water = true;
+        p[1] = -0.4f;
+    }
+    const float high = float(world_extent - 1);
+    for (int axis : {0, 2}) {
+        if (p[axis] < 1.f)
+            p[axis] = 1.f;
+        if (high < p[axis])
+            p[axis] = high;
+    }
+    return result;
+}
 } // namespace genesis::net

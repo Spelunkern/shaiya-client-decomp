@@ -24,4 +24,17 @@ Packet encode_move_target_packet(std::uint16_t opcode, std::uint32_t target);
 // kind (+0x388) is 1.
 float movement_speed(std::uint8_t speed_class, bool mounted, std::uint32_t mount_kind,
                      float base = 5.f);
+// 0043bfa0 vertical velocity: v' = (delta * 2.8 + 1) * v (006bc9f0), floored at
+// -20 (006bc9ec); the fall displacement for the frame is v' * delta. Landing
+// resets v to -2.98.
+constexpr float landing_velocity = -2.98f;
+float fall_velocity_step(float velocity, float frame_delta);
+// 0043bfa0 after collision: x and z are limited to [1, world_extent - 1]
+// (`0085d1d4` is the integer world extent) and y at or below -0.4 (006bc9e8)
+// is held at -0.4 with the water flag (+0xe0) set; above it the flag clears.
+struct WorldBounds {
+    std::array<float, 3> position;
+    bool in_water;
+};
+WorldBounds clamp_to_world(std::array<float, 3> position, std::int32_t world_extent);
 } // namespace genesis::net
