@@ -1,4 +1,5 @@
 #include "application.h"
+#include <ctime>
 #include "encoding.h"
 #include "image.h"
 #include "character_preview.h"
@@ -100,6 +101,28 @@ void Application::save_preferences() {
             throw std::runtime_error("Preference write failed");
     } catch (const std::exception&) {
         status_ = "No se pudo guardar la preferencia del usuario.";
+    }
+}
+void Application::save_screenshot() {
+    try {
+        genesis::Image shot;
+        shot.width = std::uint32_t(renderer_.width());
+        shot.height = std::uint32_t(renderer_.height());
+        shot.pixels = renderer_.read_pixels();
+        const auto png = encode_png(shot);
+        std::filesystem::create_directories("screenshots");
+        char stamp[32];
+        const std::time_t now = std::time(nullptr);
+        std::strftime(stamp, sizeof(stamp), "%Y%m%d-%H%M%S", std::localtime(&now));
+        const auto path = std::filesystem::path("screenshots") / (std::string("shaiya-") + stamp + ".png");
+        std::ofstream file(path, std::ios::binary | std::ios::trunc);
+        file.write(reinterpret_cast<const char*>(png.data()), std::streamsize(png.size()));
+        file.close();
+        if (!file)
+            throw std::runtime_error("write failed");
+        status_ = "Captura guardada: " + path.string();
+    } catch (const std::exception&) {
+        status_ = "No se pudo guardar la captura.";
     }
 }
 Application::Image Application::load_image(std::string_view path) {
@@ -250,6 +273,10 @@ void Application::handle_event(const SDL_Event& event) {
     auto page = screen();
     if (event.type == SDL_KEYDOWN) {
         auto key = event.key.keysym.sym;
+        if (key == SDLK_F12) {
+            save_screenshot();
+            return;
+        }
         if (key == SDLK_ESCAPE) {
             running_ = false;
             return;

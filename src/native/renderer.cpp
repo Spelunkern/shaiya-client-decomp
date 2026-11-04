@@ -361,6 +361,46 @@ GLuint Renderer::texture_rgba(int width, int height, const void* pixels, bool mi
     check("Texture upload");
     return id;
 }
+GLuint Renderer::texture_levels(const std::vector<Image>& levels) {
+    GLint maximum = 0;
+    gl_.GetIntegerv(GL_MAX_TEXTURE_SIZE, &maximum);
+    if (levels.empty() || levels.size() > 15)
+        throw std::invalid_argument("Invalid texture level count");
+    std::uint32_t width = levels[0].width, height = levels[0].height;
+    std::size_t complete = 1;
+    for (auto size = std::max(width, height); size > 1; size /= 2)
+        ++complete;
+    if (levels.size() > complete)
+        throw std::invalid_argument("More texture levels than a complete chain");
+    for (const auto& level : levels) {
+        if (level.width != width || level.height != height || !width || !height ||
+            width > std::uint32_t(maximum) || height > std::uint32_t(maximum) ||
+            level.pixels.size() != std::size_t(width) * height * 4)
+            throw std::invalid_argument("Invalid texture level");
+        width = width > 1 ? width / 2 : 1;
+        height = height > 1 ? height / 2 : 1;
+    }
+    GLuint id = 0;
+    gl_.GenTextures(1, &id);
+    textures_.push_back(id);
+    gl_.BindTexture(GL_TEXTURE_2D, id);
+    gl_.PixelStorei(GL_UNPACK_ALIGNMENT, 1);
+    for (std::size_t i = 0; i < levels.size(); ++i)
+        gl_.TexImage2D(GL_TEXTURE_2D, GLint(i), GL_RGBA8, GLsizei(levels[i].width),
+                       GLsizei(levels[i].height), 0, GL_RGBA, GL_UNSIGNED_BYTE,
+                       levels[i].pixels.data());
+    gl_.TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
+    gl_.TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, GLint(levels.size() - 1));
+    gl_.TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,
+                      levels.size() > 1 ? GL_LINEAR_MIPMAP_LINEAR : GL_LINEAR);
+    gl_.TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    check("Texture level upload");
+    return id;
+}
+GLuint Renderer::load_texture(const std::vector<std::uint8_t>& encoded,
+                              const TextureLoadOptions& options) {
+    return texture_levels(decode_texture_levels(encoded, options));
+}
 void Renderer::bind_images(std::array<GLuint, 4> images) {
     images_ = images;
 }
@@ -680,6 +720,14 @@ void Renderer::release_mesh(MeshId id) {
     if(id>meshes_.size() || !meshes_[id-1].vao) throw std::invalid_argument("Invalid mesh handle");
     auto& mesh=meshes_[id-1];gl_.DeleteBuffers(1,&mesh.vertices);gl_.DeleteBuffers(1,&mesh.indices);
     gl_.DeleteVertexArrays(1,&mesh.vao);mesh=Mesh{};
+}
+Renderer::ResourceCounts Renderer::resource_counts() const {
+    ResourceCounts counts;
+    counts.textures = textures_.size() - 1; // white_
+    for (const auto& mesh : meshes_)
+        counts.meshes += mesh.vao != 0;
+    counts.targets = targets_.size();
+    return counts;
 }
 void Renderer::fullscreen(PixelPass pixel, const Style& style) {
     program(VertexPass::fullscreen, pixel);

@@ -36,6 +36,8 @@
     X(void, TexSubImage2D,                                                                         \
       (GLenum, GLint, GLint, GLint, GLsizei, GLsizei, GLenum, GLenum, const void*))                \
     X(void, GetTexLevelParameteriv, (GLenum, GLint, GLenum, GLint*))                               \
+    X(void, GetTexParameteriv, (GLenum, GLenum, GLint*))                                           \
+    X(void, GetTexImage, (GLenum, GLint, GLenum, GLenum, void*))                                   \
     X(void, GenerateMipmap, (GLenum))                                                              \
     X(void, GenSamplers, (GLsizei, GLuint*))                                                       \
     X(void, DeleteSamplers, (GLsizei, const GLuint*))                                              \

@@ -1,5 +1,6 @@
 #include "image.h"
 #include <algorithm>
+#include <array>
 #include <cstdlib>
 #include <cstring>
 #include <stdexcept>
@@ -663,5 +664,142 @@ Image decode_image(const std::vector<std::uint8_t>& bytes) {
     result.pixels.assign(decoded.pixels,
                          decoded.pixels + size_t(decoded.width) * decoded.height * 4);
     return result;
+}
+TextureLoadOptions texture_quality_options(std::uint32_t width, std::uint32_t height,
+                                           std::uint32_t levels, std::uint32_t color_key) {
+    TextureLoadOptions options;
+    options.interface_power_of_two = true;
+    options.generate_mips = levels != 1;
+    if (width && width != 0xffffffffu)
+        options.requested_width = width;
+    if (height && height != 0xffffffffu)
+        options.requested_height = height;
+    if (levels && levels <= 15)
+        options.level_limit = levels;
+    options.color_key_enabled = color_key != 0;
+    options.color_key = color_key;
+    return options;
+}
+std::vector<Image> decode_texture_levels(const std::vector<std::uint8_t>& bytes,
+                                         const TextureLoadOptions& options) {
+    if (bytes.empty() || options.level_limit > maximum_levels)
+        throw std::invalid_argument("Invalid texture load request");
+    const bool is_dds = bytes.size() >= 4 && read32(bytes.data()) == 0x20534444;
+    Dds dds;
+    Image first;
+    if (is_dds) {
+        auto status = parse_dds(bytes.data(), bytes.size(), dds);
+        if (failed(status))
+            throw std::runtime_error("Invalid DDS (" + std::to_string(status) + ")");
+    } else
+        first = decode_image(bytes);
+    const std::uint32_t source_width = is_dds ? dds.width : first.width,
+                        source_height = is_dds ? dds.height : first.height;
+    const std::uint32_t width = options.requested_width           ? options.requested_width
+                                : options.interface_power_of_two ? power_of_two(source_width)
+                                                                  : source_width;
+    const std::uint32_t height = options.requested_height          ? options.requested_height
+                                 : options.interface_power_of_two ? power_of_two(source_height)
+                                                                   : source_height;
+    std::uint32_t count = options.generate_mips ? mip_count(width, height) : is_dds ? dds.levels : 1;
+    if (options.interface_power_of_two && !options.generate_mips)
+        count = 1;
+    if (options.level_limit)
+        count = smaller(count, options.level_limit);
+    if (!valid_dimensions(width, height) || count > mip_count(width, height))
+        throw std::invalid_argument("Invalid texture dimensions or level count");
+    std::vector<Image> levels(count);
+    std::uint32_t w = width, h = height;
+    for (std::uint32_t level = 0; level < count; ++level) {
+        if (is_dds && level < dds.levels) {
+            CpuImage decoded;
+            auto status = decode_dds_level(dds, level, decoded);
+            if (failed(status))
+                throw std::runtime_error("Unsupported DDS level (" + std::to_string(status) + ")");
+            levels[level].width = decoded.width;
+            levels[level].height = decoded.height;
+            levels[level].pixels.assign(decoded.pixels,
+                                        decoded.pixels + size_t(decoded.width) * decoded.height * 4);
+        } else if (level)
+            levels[level] = texture_box_mip(levels[level - 1]);
+        else
+            levels[0] = std::move(first);
+        if (options.color_key_enabled)
+            texture_apply_color_key(levels[level], options.color_key);
+        if (levels[level].width != w || levels[level].height != h)
+            levels[level] = texture_resize_triangle(levels[level], w, h);
+        w = half(w);
+        h = half(h);
+    }
+    return levels;
+}
+namespace {
+std::uint32_t crc32_update(std::uint32_t crc, const std::uint8_t* data, size_t size) {
+    static const auto table = [] {
+        std::array<std::uint32_t, 256> t{};
+        for (std::uint32_t i = 0; i < 256; ++i) {
+            std::uint32_t c = i;
+            for (int k = 0; k < 8; ++k)
+                c = c & 1 ? 0xedb88320u ^ (c >> 1) : c >> 1;
+            t[i] = c;
+        }
+        return t;
+    }();
+    for (size_t i = 0; i < size; ++i)
+        crc = table[(crc ^ data[i]) & 255] ^ (crc >> 8);
+    return crc;
+}
+void be32(std::vector<std::uint8_t>& out, std::uint32_t v) {
+    for (int s = 24; s >= 0; s -= 8)
+        out.push_back(std::uint8_t(v >> s));
+}
+void chunk(std::vector<std::uint8_t>& out, const char* type, const std::vector<std::uint8_t>& data) {
+    be32(out, std::uint32_t(data.size()));
+    const size_t start = out.size();
+    out.insert(out.end(), type, type + 4);
+    out.insert(out.end(), data.begin(), data.end());
+    be32(out, crc32_update(0xffffffffu, out.data() + start, out.size() - start) ^ 0xffffffffu);
+}
+} // namespace
+std::vector<std::uint8_t> encode_png(const Image& image) {
+    if (!image.width || !image.height ||
+        image.pixels.size() != size_t(image.width) * image.height * 4)
+        throw std::invalid_argument("Invalid PNG source image");
+    std::vector<std::uint8_t> raw;
+    const size_t stride = size_t(image.width) * 4;
+    raw.reserve((stride + 1) * image.height);
+    for (std::uint32_t y = 0; y < image.height; ++y) {
+        raw.push_back(0); // filter: none
+        raw.insert(raw.end(), image.pixels.begin() + y * stride,
+                   image.pixels.begin() + (y + 1) * stride);
+    }
+    std::vector<std::uint8_t> z = {0x78, 0x01};
+    std::uint32_t a = 1, b = 0;
+    for (std::uint8_t byte : raw) {
+        a = (a + byte) % 65521;
+        b = (b + a) % 65521;
+    }
+    for (size_t offset = 0; offset < raw.size() || offset == 0;) {
+        const size_t n = std::min<size_t>(65535, raw.size() - offset);
+        const bool last = offset + n >= raw.size();
+        z.push_back(last ? 1 : 0);
+        z.push_back(std::uint8_t(n));
+        z.push_back(std::uint8_t(n >> 8));
+        z.push_back(std::uint8_t(~n));
+        z.push_back(std::uint8_t(~n >> 8));
+        z.insert(z.end(), raw.begin() + offset, raw.begin() + offset + n);
+        offset += n;
+        if (last)
+            break;
+    }
+    be32(z, b << 16 | a);
+    std::vector<std::uint8_t> out = {0x89, 'P', 'N', 'G', 13, 10, 26, 10}, header;
+    be32(header, image.width);
+    be32(header, image.height);
+    header.insert(header.end(), {8, 6, 0, 0, 0});
+    chunk(out, "IHDR", header);
+    chunk(out, "IDAT", z);
+    chunk(out, "IEND", {});
+    return out;
 }
 } // namespace genesis

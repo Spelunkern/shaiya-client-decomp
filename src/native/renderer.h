@@ -1,6 +1,7 @@
 #pragma once
 #include "gl_api.h"
 #include "graphics/render_types.h"
+#include "image.h"
 #include <array>
 #include <memory>
 #include <optional>
@@ -148,6 +149,11 @@ class Renderer {
     void water(const WaterUniforms& data);
     void bones(const Matrix* matrices, std::size_t count);
     GLuint texture_rgba(int width, int height, const void* pixels, bool mipmaps = false);
+    // Uploads an explicit level chain (level 0 first, each level half the
+    // previous, clamped to 1) with no GPU mip generation.
+    GLuint texture_levels(const std::vector<Image>& levels);
+    // decode_texture_levels() followed by texture_levels().
+    GLuint load_texture(const std::vector<std::uint8_t>& encoded, const TextureLoadOptions& options);
     void update_texture(GLuint texture, int x, int y, int width, int height, const void* pixels);
     void release_texture(GLuint texture);
     void bind_images(std::array<GLuint, 4> images);
@@ -170,6 +176,12 @@ class Renderer {
     int height() const {
         return height_;
     }
+    // Live GPU resources (excluding the renderer's own white texture and main
+    // target); lets owners and tests verify that unloading releases everything.
+    struct ResourceCounts {
+        std::size_t textures = 0, meshes = 0, targets = 0;
+    };
+    ResourceCounts resource_counts() const;
     void check(const char* operation);
 
   private:

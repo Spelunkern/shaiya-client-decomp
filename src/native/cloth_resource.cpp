@@ -9,9 +9,9 @@ ClothResource::ClothResource(Renderer& renderer, const shaiya::portable::Archive
       particles_(setup_, data_) {
     if (data_.vertices.empty() || data_.indices.empty())
         throw std::invalid_argument("Cloth rendering needs indexed geometry");
-    auto image = decode_image(archive.read(texture));
-    texture_ =
-        renderer_.texture_rgba(int(image.width), int(image.height), image.pixels.data(), true);
+    TextureLoadOptions options;
+    options.generate_mips = true; // original box-filtered chain, authored size
+    texture_ = renderer_.load_texture(archive.read(texture), options);
 }
 ClothResource::~ClothResource() {
     renderer_.release_texture(texture_);

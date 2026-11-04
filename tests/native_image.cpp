@@ -132,6 +132,78 @@ int main() {
         expect(keyed.pixels[3] == 0, "Matching color key clears alpha");
         expect(keyed.pixels[7] == 255, "Non-matching pixel keeps its alpha");
 
+        // Level-chain policy (load_texture): 4x4 BMP-free path via TGA.
+        Bytes quad(18, 0);
+        quad[2] = 2;
+        quad[12] = 4;
+        quad[14] = 4;
+        quad[16] = 24;
+        for (int i = 0; i < 16; ++i)
+            quad.insert(quad.end(), {10, 20, 30});
+        genesis::TextureLoadOptions options;
+        auto chain = genesis::decode_texture_levels(quad, options);
+        expect(chain.size() == 1 && chain[0].width == 4, "Default policy keeps one level");
+        options.generate_mips = true;
+        chain = genesis::decode_texture_levels(quad, options);
+        expect(chain.size() == 3 && chain[1].width == 2 && chain[2].width == 1 &&
+                   chain[2].pixels[0] == 30,
+               "generate_mips builds a box-filtered chain down to 1x1");
+        options.level_limit = 2;
+        chain = genesis::decode_texture_levels(quad, options);
+        expect(chain.size() == 2, "level_limit truncates the chain");
+        options = {};
+        options.requested_width = 8;
+        options.requested_height = 2;
+        chain = genesis::decode_texture_levels(quad, options);
+        expect(chain.size() == 1 && chain[0].width == 8 && chain[0].height == 2,
+               "requested size resizes with the triangle filter");
+        options = {};
+        options.interface_power_of_two = true;
+        quad[12] = 3;
+        quad.resize(18 + 3 * 4 * 3);
+        chain = genesis::decode_texture_levels(quad, options);
+        expect(chain.size() == 1 && chain[0].width == 4 && chain[0].height == 4,
+               "interface textures round up to powers of two with one level");
+        options = {};
+        options.color_key_enabled = true;
+        options.color_key = 0x1e140a; // stored as B,G,R 10,20,30 -> RGB 30,20,10
+        chain = genesis::decode_texture_levels(quad, options);
+        expect(chain[0].pixels[3] == 0, "color key applies to decoded levels");
+        options = {};
+        options.level_limit = 16;
+        try {
+            (void)genesis::decode_texture_levels(quad, options);
+            throw std::logic_error("Accepted level_limit above the maximum");
+        } catch (const std::invalid_argument&) {
+        }
+
+        auto quality = genesis::texture_quality_options(0xffffffffu, 64, 1, 0);
+        expect(quality.interface_power_of_two && !quality.generate_mips &&
+                   quality.requested_width == 0 && quality.requested_height == 64 &&
+                   quality.level_limit == 1 && !quality.color_key_enabled,
+               "Quality options with levels 1");
+        quality = genesis::texture_quality_options(0, 0, 0, 0xff00ff);
+        expect(quality.generate_mips && quality.level_limit == 0 && quality.color_key_enabled &&
+                   quality.color_key == 0xff00ff,
+               "Quality options with full chain and key");
+        quality = genesis::texture_quality_options(0, 0, 16, 0);
+        expect(quality.generate_mips && quality.level_limit == 0, "Levels above 15 are ignored");
+
+        genesis::Image png;
+        png.width = 3;
+        png.height = 2;
+        png.pixels.assign(24, 0);
+        for (std::size_t i = 0; i < 24; ++i)
+            png.pixels[i] = std::uint8_t(i * 10);
+        const auto encoded = genesis::encode_png(png);
+        expect(encoded.size() > 40 && encoded[1] == 'P' && encoded[12] == 'I', "PNG framing");
+        if (const char* path = std::getenv("GENESIS_PNG_OUT")) {
+            std::FILE* file = std::fopen(path, "wb");
+            expect(file != nullptr, "PNG output path");
+            std::fwrite(encoded.data(), 1, encoded.size(), file);
+            std::fclose(file);
+        }
+
         std::puts("Native image decoder checks passed");
         return 0;
     } catch (const std::exception& e) {

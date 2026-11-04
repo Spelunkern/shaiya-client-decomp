@@ -57,6 +57,7 @@ class Application {
     void append_input(std::string_view utf8);
     void clear_password();
     void save_preferences();
+    void save_screenshot();
     void update_character_preview(float seconds);
     std::array<float, 2> logical_mouse(int x, int y) const;
     float scale() const;

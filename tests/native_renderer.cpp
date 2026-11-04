@@ -60,6 +60,47 @@ int main() {
         expect_pixel(r, 8, 8, {255, 0, 0, 255}, "Texture top-left");
         expect_pixel(r, 48, 8, {0, 255, 0, 255}, "Texture top-right");
         expect_pixel(r, 8, 48, {0, 0, 255, 255}, "Texture bottom-left");
+        // Explicit level chain: every authored level is uploaded verbatim.
+        {
+            genesis::Image base, tip;
+            base.width = base.height = 2;
+            base.pixels.assign(16, 255);
+            tip.width = tip.height = 1;
+            tip.pixels = {1, 2, 3, 4};
+            GLuint chain = r.texture_levels({base, tip});
+            GLint lw = 0, max_level = 0;
+            r.api().BindTexture(GL_TEXTURE_2D, chain);
+            r.api().GetTexLevelParameteriv(GL_TEXTURE_2D, 1, GL_TEXTURE_WIDTH, &lw);
+            r.api().GetTexParameteriv(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, &max_level);
+            unsigned char level1[4] = {};
+            r.api().GetTexImage(GL_TEXTURE_2D, 1, GL_RGBA, GL_UNSIGNED_BYTE, level1);
+            if (lw != 1 || max_level != 1 || level1[0] != 1 || level1[3] != 4)
+                throw std::runtime_error("Texture level chain upload");
+            bool rejected = false;
+            try {
+                genesis::Image wrong = tip;
+                (void)r.texture_levels({base, wrong, wrong});
+            } catch (const std::invalid_argument&) {
+                rejected = true;
+            }
+            if (!rejected)
+                throw std::runtime_error("Accepted a mis-sized texture level");
+            r.release_texture(chain);
+        }
+        {
+            const auto before = r.resource_counts();
+            GLuint a = r.texture_rgba(1, 1, "\xff\xff\xff\xff");
+            const ModelVertex tri[3] = {};
+            const auto m = r.create_mesh(Layout::model, tri, 3);
+            auto during = r.resource_counts();
+            if (during.textures != before.textures + 1 || during.meshes != before.meshes + 1)
+                throw std::runtime_error("Resource counts do not track creation");
+            r.release_texture(a);
+            r.release_mesh(m);
+            auto after = r.resource_counts();
+            if (after.textures != before.textures || after.meshes != before.meshes)
+                throw std::runtime_error("Resource counts do not track release");
+        }
         // Real model and skin layouts, with translated row-major matrices.
         r.bind_images({});
         r.clear({0, 0, 0, 1});
