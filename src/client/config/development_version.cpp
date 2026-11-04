@@ -1,5 +1,9 @@
+#if defined(_WIN32)
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#else
+#include <cstdlib>
+#endif
 #include "development_version.h"
 
 namespace {
@@ -13,8 +17,17 @@ uint32_t shaiya_client_version = original_client_version;
 extern "C" void shaiya_apply_development_client_version() {
     shaiya_client_version = original_client_version;
     char candidate[32] = {};
-    const DWORD length = GetEnvironmentVariableA("SHAIYA_CLIENT_VERSION", candidate,
-                                                 sizeof(candidate));
+#if defined(_WIN32)
+    const uint32_t length = GetEnvironmentVariableA("SHAIYA_CLIENT_VERSION", candidate,
+                                                    sizeof(candidate));
+#else
+    const char* environment = std::getenv("SHAIYA_CLIENT_VERSION");
+    if (!environment) return;
+    uint32_t length = 0;
+    while (length < sizeof(candidate) && environment[length]) ++length;
+    if (length >= sizeof(candidate)) return;
+    for (uint32_t i = 0; i < length; ++i) candidate[i] = environment[i];
+#endif
     if (length == 0 || length >= sizeof(candidate) || candidate[length] != 0)
         return;
 

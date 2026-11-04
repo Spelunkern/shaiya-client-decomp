@@ -1,0 +1,36 @@
+{
+  "version": 3,
+  "cmakeMinimumRequired": {"major": 3, "minor": 21, "patch": 0},
+  "configurePresets": [
+    {
+      "name": "native-debug", "displayName": "Native 64-bit Debug",
+      "generator": "Ninja", "binaryDir": "${sourceDir}/build-native",
+      "cacheVariables": {"CMAKE_BUILD_TYPE": "Debug", "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"}
+    },
+    {
+      "name": "native-release", "displayName": "Native 64-bit Release",
+      "generator": "Ninja", "binaryDir": "${sourceDir}/build-native-release",
+      "cacheVariables": {"CMAKE_BUILD_TYPE": "Release"}
+    },
+    {
+      "name": "windows-mingw", "displayName": "Windows x86-64 from Linux (GCC/MinGW)",
+      "generator": "Ninja", "binaryDir": "${sourceDir}/build-windows",
+      "toolchainFile": "${sourceDir}/cmake/mingw64.cmake",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "SDL2_DIR": "${sourceDir}/.tools/SDL2-2.32.10/x86_64-w64-mingw32/lib/cmake/SDL2",
+        "OPENSSL_ROOT_DIR": "${sourceDir}/.tools/openssl-win64",
+        "OPENSSL_USE_STATIC_LIBS": "ON"
+      }
+    }
+  ],
+  "buildPresets": [
+    {"name": "native-debug", "configurePreset": "native-debug", "jobs": 4},
+    {"name": "native-release", "configurePreset": "native-release", "jobs": 4},
+    {"name": "windows-mingw", "configurePreset": "windows-mingw", "jobs": 4}
+  ],
+  "testPresets": [
+    {"name": "native-debug", "configurePreset": "native-debug", "output": {"outputOnFailure": true}},
+    {"name": "native-release", "configurePreset": "native-release", "output": {"outputOnFailure": true}}
+  ]
+}

@@ -1,0 +1,23 @@
+name: Native 64-bit components
+on: [push, pull_request]
+jobs:
+  linux:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y ninja-build libsdl2-dev libgl1-mesa-dev libssl-dev libfreetype-dev fonts-dejavu-core xvfb
+      - run: cmake --preset native-release
+      - run: cmake --build --preset native-release
+      - run: xvfb-run -a ctest --preset native-release
+        env:
+          LIBGL_ALWAYS_SOFTWARE: "1"
+  windows:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - run: vcpkg install sdl2:x64-windows openssl:x64-windows freetype:x64-windows
+      - shell: pwsh
+        run: cmake -S . -B build-windows -A x64 "-DCMAKE_TOOLCHAIN_FILE=$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake"
+      - run: cmake --build build-windows --config Release --parallel 4
+      # Hosted Windows runners do not provide the required OpenGL 4.5 driver.
+      - run: ctest --test-dir build-windows -C Release -LE graphics --output-on-failure

@@ -3,6 +3,9 @@
 /zig-cache/
 /zig-out/
 /build/
+/build-native/
+/build-native-*/
+/build-windows/
 /dist/
 .cache/
 
@@ -31,6 +34,7 @@
 
 # Local tooling and generated compiler metadata
 /.tools/
+/.toolchain/
 /.venv/
 /compile_commands.json
 __pycache__/

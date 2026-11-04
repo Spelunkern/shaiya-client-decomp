@@ -7,12 +7,12 @@ uint32_t elapsed_milliseconds = 0;
 bool sampled = false;
 } // namespace
 
-extern "C" void __cdecl native_world_animation_begin_frame(float elapsed_seconds) {
+extern "C" void SHAIYA_CDECL native_world_animation_begin_frame(float elapsed_seconds) {
     frame_seconds = elapsed_seconds;
     sampled = false;
 }
 
-extern "C" uint32_t __attribute__((stdcall)) native_world_animation_elapsed(float speed_scale) {
+extern "C" uint32_t SHAIYA_STDCALL native_world_animation_elapsed(float speed_scale) {
     if (sampled)
         return elapsed_milliseconds;
     sampled = true;
