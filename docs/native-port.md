@@ -52,7 +52,9 @@ launcher until the native application supports the client behavior.
   8-tap half-size downsample, up to 16 gaussian x/y iterations, additive
   composite with the original strength rule. `ShadowProjection`/`ShadowMap`
   port the actor shadow camera, projective bias and offscreen pass scoping.
-  Both are tested but no game scene calls them yet.
+  `genesis_native --glow 1|2` runs `GlowEffect` between the 3D scene and the
+  interface (default 0, matching the original's off state); shadows are not
+  instantiated because no actor stands in the connected world yet.
 - `water.h` ports the water/planar-reflection orchestration: the procedural
   R8G8 signed normal source, wrapped height-to-normal conversion, ±2048 quads,
   mode 0/1 animation, projective-bias capture of reflection/refraction cameras

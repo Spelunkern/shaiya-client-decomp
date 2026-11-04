@@ -19,7 +19,7 @@ int main(int argc,char** argv) {
             std::string arg=argv[i];
             if(arg=="--help") {
                 std::puts("Genesis native client (migration in progress)\n"
-                    "--assets <directory> --font <font-file> --login-host <IPv4>\n"
+                    "--assets <directory> --glow <0-2> --font <font-file> --login-host <IPv4>\n"
                     "--login-port <port> --world-port <port> --frames <count> --capture <new.ppm>\n"
                     "Account input is interactive; no password command-line option.\n"
                     "Full world/gameplay integration is still incomplete.");return 0;
@@ -33,6 +33,7 @@ int main(int argc,char** argv) {
             else if(arg=="--world-port") settings.world_port=static_cast<std::uint16_t>(number(value,65535));
             else if(arg=="--frames") {frames=static_cast<int>(number(value,1000000));settings.hidden=true;}
             else if(arg=="--capture") capture=value;
+            else if(arg=="--glow") settings.glow_quality=static_cast<unsigned>(number(value,2));
             else throw std::invalid_argument("Unknown argument: "+arg);
         }
         genesis::Application app(std::move(settings));int rendered=0;

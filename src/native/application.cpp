@@ -560,6 +560,9 @@ void Application::render() {
         world.m[3][1] += .2f;
         backdrop_.draw(world);
     }
+    // Original post-effect order: 3D scene, glow composite, then interface.
+    if (settings_.glow_quality)
+        glow_.apply(2, GlowEffect::strength(0, settings_.glow_quality));
     if (page == Screen::login || page == Screen::connecting) {
         image(login_image_, 400, 524, 224, 200, 0, 0, 224, 200);
         if (remember_id_) {

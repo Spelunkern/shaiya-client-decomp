@@ -1,6 +1,7 @@
 #pragma once
 #include "connection.h"
 #include "model_resource.h"
+#include "glow.h"
 #include "text.h"
 #include <chrono>
 
@@ -15,6 +16,8 @@ struct AppSettings {
     std::uint32_t client_version = 0x11122200;
     int width = 1024, height = 768;
     bool hidden = false;
+    // Glow quality 0 (off, original default), 1 or 2; see GlowEffect::strength.
+    unsigned glow_quality = 0;
 };
 // The native application entry is integrated here as the recovered engine's
 // owners are migrated. It does not yet implement the entire gameplay runtime.
@@ -64,6 +67,7 @@ class Application {
     std::array<float, 2> origin() const;
     AppSettings settings_;
     Renderer renderer_;
+    GlowEffect glow_{renderer_};
     Font font_;
     Text text_;
     shaiya::portable::Archive archive_;

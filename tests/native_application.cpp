@@ -50,6 +50,16 @@ int main(int argc,char** argv) {
         server.equipment_ids[6]=server.equipment_ids[0];
         settings.login_port=server.login.port();settings.world_port=server.world.port();settings.preferences=temp/"id.txt";
         {
+            auto glowing=settings;glowing.glow_quality=2;
+            Application lit(glowing);expect(lit.frame(),"Frame renders with glow enabled");
+            expect(lit.renderer().resource_counts().targets==3,"Glow allocates its three targets once");
+            lit.frame();expect(lit.renderer().resource_counts().targets==3,"Glow targets are reused across frames");
+        }
+        {
+            Application plain(settings);expect(plain.frame(),"Frame renders without glow");
+            expect(plain.renderer().resource_counts().targets==0,"No glow targets when disabled");
+        }
+        {
             Application app(settings);expect(app.frame() && app.screen()==Application::Screen::login,"Native entry screen");
             text(app,"José");key(app,SDLK_TAB);text(app,"secret");app.frame();auto masked=app.renderer().read_pixels();
             key(app,SDLK_a,KMOD_CTRL);text(app,"xxxxxx");app.frame();
