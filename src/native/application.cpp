@@ -8,6 +8,7 @@
 #include "basic_water.h"
 #include "world_objects.h"
 #include "world_tail.h"
+#include "movement.h"
 #include "sdata.h"
 #include "math.h"
 #include <openssl/crypto.h>
@@ -489,6 +490,23 @@ void Application::update_motion(float seconds) {
     MotionParameters parameters;
     parameters.world_extent = std::int32_t(loaded_terrain_->data().prefix.field);
     step_motion(*motion_, input, parameters, std::min(seconds, .1f), nullptr, ground);
+    // 00437050: while a movement key is held the position is sent every
+    // 500 ms (state flag 0x80 clear); releasing sends one final packet with 0x80
+    // set. 0x40 marks a grounded player.
+    bool held = input.forward || input.backward || input.turn_left || input.turn_right ||
+                input.strafe_left || input.strafe_right;
+    auto now = std::chrono::steady_clock::now();
+    bool send_now = (held && (!moving_ || now - last_move_sync_ >= std::chrono::milliseconds(500))) ||
+                    (!held && moving_);
+    if (send_now && world->state() == net::World::State::loading) {
+        auto packet = net::encode_move_packet(
+            net::movement_state_byte(held ? 0 : 4, motion_->grounded, !held),
+            orientation_from_heading(motion_->heading), motion_->position);
+        if (packet)
+            world->send_packet(*packet);
+        last_move_sync_ = now;
+    }
+    moving_ = held;
 }
 void Application::update_character_preview(float seconds) {
     auto clear = [&] {

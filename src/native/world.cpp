@@ -84,6 +84,12 @@ void World::select_character(std::uint32_t id) {
     selected_ = id;
     state_ = State::selecting_character;
 }
+void World::send_packet(const Packet& packet) {
+    if (state_ != State::loading)
+        throw std::logic_error("Gameplay packets require a selected character");
+    auto bytes = wire_.encode(packet);
+    outgoing_.insert(outgoing_.end(), bytes.begin(), bytes.end());
+}
 void World::receive(const void* bytes, std::size_t count) {
     wire_.feed(bytes, count);
     while (auto packet = wire_.pop())

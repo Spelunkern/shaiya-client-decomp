@@ -117,6 +117,12 @@ int main() {
                "Selected player ownership");
         expect(client.selected_map_path() && *client.selected_map_path() == "data/world/7.wld",
                "Selected player map resource path");
+        client.send_packet({0x0501, Bytes({1, 2, 3})});
+        frame = client.take_outgoing();
+        server.feed(frame.data(), frame.size());
+        auto gameplay = server.pop();
+        expect(gameplay && gameplay->opcode == 0x0501 && gameplay->body == Bytes({1, 2, 3}),
+               "Gameplay packet is encoded and queued after selection");
         deliver(client, server, {0x0105, player_fixture::details});
         expect(client.player()->details && client.player()->position[2] == 987.75f &&
                    client.take_events().empty(),

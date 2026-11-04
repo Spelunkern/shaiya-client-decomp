@@ -418,8 +418,9 @@ are the output file followed by hex addresses). Findings:
   it with acos). `Application` now creates this state for the connected world
   and moves the selected character with the original default keys (W/S/A/D,
   Q/E strafe, Space jump) over the terrain, third-person camera included. It is
-  local exploration: nothing is sent to the server (the 500 ms `0x0501` sync is
-  not wired), there is no collision outdoors and the actor stays in its idle
+  the position sync of `00437050` is wired: `0x0501` goes out every 500 ms
+  while a movement key is held (state 0, 0x40 when grounded) and once on
+  release (state 4 with 0x80), through `World::send_packet`; nothing else is sent, there is no collision outdoors and the actor stays in its idle
   pose. Actor models face local -z, so the placement faces opposite the
   camera-forward vector.
 - Traced, not yet ported: per frame the movement delta (speed * frame delta

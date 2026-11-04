@@ -30,6 +30,8 @@ class World {
     Bytes take_outgoing();
     std::vector<Packet> take_events();
     void select_character(std::uint32_t id);
+    // Encode and queue a gameplay packet once the character has been selected.
+    void send_packet(const Packet& packet);
     State state() const {
         return state_;
     }

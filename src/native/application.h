@@ -111,7 +111,8 @@ class Application {
     // Local exploration of the connected world with the original's default
     // movement keys (player_motion.h); not synchronised with the server.
     std::optional<MotionState> motion_;
-    bool jump_down_ = false;
+    bool jump_down_ = false, moving_ = false;
+    std::chrono::steady_clock::time_point last_move_sync_{};
     void update_motion(float seconds);
     std::string loaded_terrain_path_;
     std::chrono::steady_clock::time_point previous_frame_ = std::chrono::steady_clock::now();
