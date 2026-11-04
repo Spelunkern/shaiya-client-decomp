@@ -1,5 +1,6 @@
 #include "player_motion.h"
 #include <cmath>
+#include <algorithm>
 #include <cstdio>
 #include <stdexcept>
 using namespace genesis;
@@ -75,6 +76,30 @@ int main() {
         for (int i = 0; i < 120; ++i)
             step_motion(drop, {}, indoor, 1.f / 30, world, nullptr);
         expect(near(drop.position[1], 0.9f + .05f * .9f, 0.02f), "settles on the floor");
+        {
+            MotionState hop;
+            hop.position = {100, 0.9f, 100};
+            hop.eye = {100, 2, 95};
+            hop.target = {100, 1.4f, 100};
+            MotionKeys jump;
+            jump.jump_pressed = true;
+            step_motion(hop, jump, walking, 1.f / 30, nullptr, flat);
+            expect(hop.jump_pending && !hop.grounded, "jump armed");
+            float apex = 0;
+            int frames = 0;
+            for (; frames < 300 && !hop.grounded; ++frames) {
+                step_motion(hop, {}, walking, 1.f / 30, nullptr, flat);
+                apex = std::max(apex, hop.position[1] - 0.9f);
+            }
+            expect(hop.grounded && !hop.jumping && frames < 150, "jump lands");
+            expect(apex > 0.5f && apex < 5.f, "jump rises");
+            // A second press mid-air is ignored.
+            MotionState air = hop;
+            air.grounded = false;
+            air.jumping = true;
+            step_motion(air, jump, walking, 1.f / 30, nullptr, flat);
+            expect(!air.jump_pending, "no double jump");
+        }
         std::puts("Native player motion passed");
         return 0;
     } catch (const std::exception& e) {

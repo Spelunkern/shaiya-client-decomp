@@ -18,6 +18,7 @@ enum KeyBinding : unsigned { key_turn_left = 0, key_forward = 1, key_strafe_a = 
 struct MotionKeys {
     bool forward = false, backward = false, turn_left = false, turn_right = false;
     bool strafe_left = false, strafe_right = false; // Q / E
+    bool jump_pressed = false; // press edge of the jump key (index 9, Space)
 };
 struct MotionParameters {
     std::uint8_t speed_class = 2; // player +0x281
@@ -34,6 +35,8 @@ struct MotionState {
     Vec3f eye{}, target{};
     float vertical_velocity = net::landing_velocity;
     bool in_water = false;
+    bool jump_pending = false, jumping = false; // 0071d010 / 0071d008
+    bool grounded = true;
 };
 // Outdoor ground height (005a2c30); empty inside dungeons, where the vertical
 // collision pass supplies the floor.
@@ -43,7 +46,10 @@ using GroundHeight = std::function<float(float x, float z)>;
 // speed * delta (half while walking), backward and strafing (Q left, E right:
 // cross(up, direction) with up = (0, 1, 0) from the player constructor
 // 00416cc0) at the class factor {0.5, 1, 1.5, 2, 2.5} * delta, then gravity, collision, ground clamp, the
-// world clamp and camera follow.
+// world clamp and camera follow. Jump (0043bfa0): the press edge arms a pending
+// jump while grounded; on the next frame the jump is active and adds an upward
+// 9.0 (`0071d00c`) * delta to every frame's vertical displacement until the
+// player lands.
 void step_motion(MotionState& state, const MotionKeys& keys, const MotionParameters& parameters,
                  float frame_delta, const CollisionWorld& world, const GroundHeight& ground);
 } // namespace genesis

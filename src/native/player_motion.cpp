@@ -64,8 +64,19 @@ void step_motion(MotionState& state, const MotionKeys& keys, const MotionParamet
             move[2] += side * dir[0];
         }
     }
+    if (state.jump_pending) {
+        state.jumping = true;
+        state.jump_pending = false;
+    }
+    if (keys.jump_pressed && state.grounded && !state.jumping) {
+        state.jump_pending = true;
+        state.grounded = false;
+    }
     state.vertical_velocity = net::fall_velocity_step(state.vertical_velocity, delta);
-    Vec3f velocity = {move[0], state.vertical_velocity * delta, move[2]};
+    float vertical = state.vertical_velocity * delta;
+    if (state.jumping)
+        vertical += 9.f * delta;
+    Vec3f velocity = {move[0], vertical, move[2]};
     Vec3f previous = state.position;
     state.position = world ? move_with_collision(world, state.position, velocity)
                            : Vec3f{state.position[0] + velocity[0], state.position[1] + velocity[1],
@@ -75,9 +86,19 @@ void step_motion(MotionState& state, const MotionKeys& keys, const MotionParamet
         if (state.position[1] <= floor) {
             state.position[1] = floor;
             state.vertical_velocity = net::landing_velocity;
+            if (!state.jump_pending) {
+                state.jumping = false;
+                state.grounded = true;
+            }
         }
     } else if (state.position[1] > previous[1] + velocity[1] - 1e-4f && velocity[1] < 0)
+    {
         state.vertical_velocity = net::landing_velocity; // stopped by a floor
+        if (!state.jump_pending) {
+            state.jumping = false;
+            state.grounded = true;
+        }
+    }
     if (parameters.world_extent > 0) {
         auto bounds = net::clamp_to_world(state.position, parameters.world_extent);
         state.position = bounds.position;
