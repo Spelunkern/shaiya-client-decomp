@@ -374,8 +374,9 @@ are the output file followed by hex addresses). Findings:
   delta by speed class (2.0 mounted); class 0xff does not move. `step_motion`
   runs one frame of that, then gravity, `move_with_collision`, a ground clamp
   (`ground height + 0.9`) for outdoor fields, the world clamp and the camera
-  follow (target 1.3 - 0.8 above the position). Not traced/ported: Q/E strafe
-  (needs the +0x28..+0x30 axis), double-tap run (301 ms), click-to-move, jump,
+  follow (target 1.3 - 0.8 above the position). Q/E strafe (left/right) use cross(up, direction) with the player
+  constructor's up axis (0, 1, 0) at the same class factors as backward. Not
+  traced/ported: double-tap run (301 ms), click-to-move, jump,
   the walk/run toggle key, the mounted heading rule, and the movement-sync
   send loop. `Application` does not use it: there is no in-world screen yet
   and the initial in-game camera setup is untraced.

@@ -53,6 +53,16 @@ void step_motion(MotionState& state, const MotionKeys& keys, const MotionParamet
             for (int axis = 0; axis < 3; ++axis)
                 move[axis] -= factor * dir[axis];
         }
+        float side = (parameters.mounted ? 2.f : backward_factor(parameters.speed_class)) * delta;
+        // cross(up, dir) = (dir.z, 0, -dir.x): +x (right) for a forward +z view.
+        if (keys.strafe_right) {
+            move[0] += side * dir[2];
+            move[2] -= side * dir[0];
+        }
+        if (keys.strafe_left) {
+            move[0] -= side * dir[2];
+            move[2] += side * dir[0];
+        }
     }
     state.vertical_velocity = net::fall_velocity_step(state.vertical_velocity, delta);
     Vec3f velocity = {move[0], state.vertical_velocity * delta, move[2]};

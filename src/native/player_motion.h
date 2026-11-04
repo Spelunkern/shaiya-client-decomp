@@ -17,6 +17,7 @@ enum KeyBinding : unsigned { key_turn_left = 0, key_forward = 1, key_strafe_a = 
 
 struct MotionKeys {
     bool forward = false, backward = false, turn_left = false, turn_right = false;
+    bool strafe_left = false, strafe_right = false; // Q / E
 };
 struct MotionParameters {
     std::uint8_t speed_class = 2; // player +0x281
@@ -39,8 +40,9 @@ struct MotionState {
 using GroundHeight = std::function<float(float x, float z)>;
 // One frame of the keyboard movement of 0043bfa0: turning (speed * delta * 15
 // degrees, rotating heading and camera about the target), forward at
-// speed * delta (half while walking), backward at the class factor
-// {0.5, 1, 1.5, 2, 2.5} * delta, then gravity, collision, ground clamp, the
+// speed * delta (half while walking), backward and strafing (Q left, E right:
+// cross(up, direction) with up = (0, 1, 0) from the player constructor
+// 00416cc0) at the class factor {0.5, 1, 1.5, 2, 2.5} * delta, then gravity, collision, ground clamp, the
 // world clamp and camera follow.
 void step_motion(MotionState& state, const MotionKeys& keys, const MotionParameters& parameters,
                  float frame_delta, const CollisionWorld& world, const GroundHeight& ground);

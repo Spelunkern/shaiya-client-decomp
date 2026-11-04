@@ -45,6 +45,18 @@ int main() {
         float angle = 75.f * 0.01745329238474369f;
         expect(near(turning.heading[0], -std::sin(angle)) && near(turning.heading[2], std::cos(angle)),
                "heading rotation");
+        MotionState strafing = state;
+        strafing.eye = {100, 2, 95};
+        strafing.target = {100, 1.4f, 100};
+        MotionKeys right;
+        right.strafe_right = true;
+        step_motion(strafing, right, walking, 1.f, nullptr, flat);
+        expect(near(strafing.position[0], 101.5f) && near(strafing.position[2], state.position[2]),
+               "E strafes right at the class factor");
+        MotionKeys strafe_left;
+        strafe_left.strafe_left = true;
+        step_motion(strafing, strafe_left, walking, 1.f, nullptr, flat);
+        expect(near(strafing.position[0], 100.f), "Q strafes left");
         // Fixed 0xff class does not move.
         MotionParameters frozen = walking;
         frozen.speed_class = 0xff;
