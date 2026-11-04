@@ -112,6 +112,17 @@ launcher until the native application supports the client behavior.
   `004462d0`, further lists, lights, sounds) is shared with the field branch,
   begins at byte 0x104 for DUN and is not decoded yet; no player placement,
   collision or octree culling inside dungeons exists.
+- World descriptor tail (`world_tail.{h,cpp}`): after the field/dungeon
+  section, `004518a0` reads a stream shared by both kinds: eight placement
+  lists (`004462d0` x4, `004466c0` x2, `00446ab0`: names, then 40-byte
+  records; `00420b30`: 44-byte records), the effect name and 40-byte effect
+  placements, `00536790` objects (76- and 152-byte records), `00537200`
+  animated lists, `0053ce70` shape/route/marker sections and `005388f0`
+  lights, volumes, zones, triggers and paths (whose loop bound shrinks by each
+  record's inner count), then, for fields only, three 0x100-byte names, and a
+  final 44-byte block. Decoding all 58 DUN and 33 FLD local descriptors ends
+  exactly at the end of each file. Record payloads are retained raw: the sizes
+  are established, the later gameplay consumers of their fields are not.
 - Water definitions: every FLD descriptor stores, right after its material
   records, a 0x100-byte `.wtr` name (31 of 33 local fields; two are empty,
   which the original tolerates). `decode_water_definition` ports `005b0670`:

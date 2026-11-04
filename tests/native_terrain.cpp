@@ -1,5 +1,6 @@
 #include "terrain.h"
 #include "terrain_resource.h"
+#include "world_tail.h"
 #include "archive.h"
 #include "world.h"
 #include "fixtures/terrain_x86.h"
@@ -139,6 +140,35 @@ int main(int argc, char** argv) {
             if (plane.uv_extent != 16.f || plane.min_corner != -2048.f || plane.max_corner != 3072.f)
                 throw std::runtime_error("Water plane extents mismatch");
         }
+        {
+            // Empty shared stream: 8 lists of two zero counts, effect name and
+            // count, then the empty object, animated, shape, route and zone
+            // sections, and the 44-byte environment block.
+            std::vector<std::uint8_t> stream(8 * 8, 0);
+            stream.insert(stream.end(), 0x100 + 4, 0);      // effect name + count
+            stream.insert(stream.end(), 3 * 4, 0);          // objects: n1 n2 n3
+            stream.insert(stream.end(), 2 * 4, 0);          // animated
+            stream.insert(stream.end(), 5 * 4, 0);          // 0053ce70 counts
+            stream.insert(stream.end(), 5 * 4, 0);          // 005388f0 counts
+            stream.insert(stream.end(), 44, 0xab);
+            auto tail = genesis::decode_world_tail(stream, 0, false);
+            if (tail.bytes_consumed != stream.size() || tail.environment[0] != 0xab)
+                throw std::runtime_error("Empty world tail did not decode");
+            auto truncated = stream;
+            truncated.pop_back();
+            auto trailing = stream;
+            trailing.push_back(0);
+            for (const auto* variant : {&truncated, &trailing}) {
+                bool rejected = false;
+                try {
+                    genesis::decode_world_tail(*variant, 0, false);
+                } catch (const std::invalid_argument&) {
+                    rejected = true;
+                }
+                if (!rejected)
+                    throw std::runtime_error("Malformed world tail accepted");
+            }
+        }
         if (argc > 1) {
             std::filesystem::path root(argv[1]);
             auto archive = shaiya::portable::Archive::open(root / "data.sah", root / "data.saf");
@@ -182,7 +212,7 @@ int main(int argc, char** argv) {
                     !archive.find("data/entity/water/" + water.frames[31]))
                     throw std::runtime_error("B1_Water.wtr differs from the recovered contract");
             }
-            unsigned fields = 0, dungeons = 0, grids = 0, with_water = 0, no_water = 0;
+            unsigned fields = 0, dungeons = 0, grids = 0, with_water = 0, no_water = 0, field_tails = 0, dungeon_tails = 0;
             for (const auto& path : archive.paths()) {
                 if (path.rfind("data/world/", 0) != 0 || path.size() < 4 ||
                     path.substr(path.size() - 4) != ".wld")
@@ -203,6 +233,16 @@ int main(int argc, char** argv) {
                         auto water_name = genesis::decode_terrain_water_name(
                             world, candidate.prefix.bytes_consumed + candidate.grid.bytes_consumed +
                                        4 + 516 * records.size());
+                        {
+                            auto tail = genesis::decode_world_tail(
+                                world,
+                                candidate.prefix.bytes_consumed + candidate.grid.bytes_consumed +
+                                    4 + 516 * records.size() + 0x100,
+                                true);
+                            if (tail.placements.size() != 8)
+                                throw std::runtime_error("Field world tail lists missing");
+                            ++field_tails;
+                        }
                         if (water_name.empty())
                             ++no_water;
                         else {
@@ -223,11 +263,15 @@ int main(int argc, char** argv) {
                     if (!archive.find(descriptor.path))
                         throw std::runtime_error("Dungeon descriptor names a missing DG: " +
                                                  descriptor.path);
+                    genesis::decode_world_tail(world, descriptor.bytes_consumed, false);
+                    ++dungeon_tails;
                     ++dungeons;
                 }
             }
             if (!fields)
                 throw std::runtime_error("No original FLD worlds found");
+            if (field_tails != 33 || dungeon_tails != 58)
+                throw std::runtime_error("World tail decoding coverage changed");
             if (with_water != 31 || no_water != 2)
                 throw std::runtime_error("Field water definition coverage changed");
             std::printf("Original world prefixes: %u FLD, %u DUN; %u candidate grids fit\n", fields,

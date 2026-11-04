@@ -42,7 +42,7 @@ target_compile_features(genesis_image PUBLIC cxx_std_17)
 target_include_directories(genesis_image PUBLIC src/native)
 
 add_library(genesis_model STATIC src/native/model.cpp src/native/dungeon.cpp src/native/skin.cpp src/native/animation.cpp src/native/animation_pose.cpp src/native/appearance.cpp src/native/action.cpp src/native/action_transition.cpp src/native/character_profile.cpp src/native/cloth.cpp src/native/cloth_particles.cpp src/native/cloth_body.cpp src/native/cloth_geometry.cpp)
-target_sources(genesis_model PRIVATE src/native/terrain.cpp src/native/collision.cpp)
+target_sources(genesis_model PRIVATE src/native/terrain.cpp src/native/collision.cpp src/native/world_tail.cpp)
 target_compile_features(genesis_model PUBLIC cxx_std_17)
 target_include_directories(genesis_model PUBLIC src/native src/client)
 
