@@ -424,7 +424,7 @@ are the output file followed by hex addresses). Findings:
   the position sync of `00437050` is wired: `0x0501` goes out every 500 ms
   while a movement key is held (state 0, 0x40 when grounded) and once on
   release (state 4 with 0x80), through `World::send_packet`; nothing else is sent, there is no collision outdoors and the actor stays in its idle
-  pose. Actor models face local -z, so the placement faces opposite the
+  pose. Inside dungeons the same step runs against `check_dungeon` collision (no height field) from the server position treated as the feet. Actor models face local -z, so the placement faces opposite the
   camera-forward vector.
 - Traced, not yet ported: per frame the movement delta (speed * frame delta
   along the heading; strafing/backward multipliers 0.5, 1, `006bca08`, 2,

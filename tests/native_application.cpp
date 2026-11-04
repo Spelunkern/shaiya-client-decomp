@@ -113,6 +113,7 @@ int main(int argc,char** argv) {
             expect(indoor.entered && app.screen()==Application::Screen::loading,"Dungeon fixture did not reach loading");
             app.frame();
             expect(app.dungeon_ready() && !app.terrain_ready(),"Selected DUN descriptor did not load its dungeon");
+            expect(app.motion_active(),"Dungeon local movement state was not created");
             if(argc>=3) app.capture(std::filesystem::path(argv[2]).string()+"-dungeon.ppm");
         }
         // Saved ID is restored through the normal constructor and UI input.

@@ -473,19 +473,25 @@ void Application::update_motion(float seconds) {
     }
     auto world = connection_.world();
     auto* player = world ? world->player() : nullptr;
-    if (!loaded_terrain_ || screen() != Screen::loading || !player ||
+    if ((!loaded_terrain_ && !loaded_dungeon_) || screen() != Screen::loading || !player ||
         !std::isfinite(player->position[0]) || !std::isfinite(player->position[2])) {
         motion_.reset();
         return;
     }
     const auto scale = default_terrain_scale();
-    GroundHeight ground = [&](float x, float z) {
-        return loaded_terrain_->heights().world_height(x, z, scale.inverse_horizontal,
-                                                       scale.vertical, scale.offset,
-                                                       scale.inverse_vertical);
-    };
+    GroundHeight ground;
+    CollisionWorld collision;
+    if (loaded_terrain_)
+        ground = [&](float x, float z) {
+            return loaded_terrain_->heights().world_height(x, z, scale.inverse_horizontal,
+                                                           scale.vertical, scale.offset,
+                                                           scale.inverse_vertical);
+        };
+    else // dungeons have no height field: the vertical collision pass is the floor
+        collision = [&](CollisionPacket& packet) { check_dungeon(packet, loaded_dungeon_->data()); };
     if (!motion_) {
-        float y = ground(player->position[0], player->position[2]) + .9f;
+        float y = loaded_terrain_ ? ground(player->position[0], player->position[2]) + .9f
+                                  : player->position[1] + .9f;
         motion_ = initial_motion_state({player->position[0], y, player->position[2]},
                                        player->details ? player->details->orientation : 180);
     }
@@ -502,8 +508,9 @@ void Application::update_motion(float seconds) {
     input.jump_pressed = jump && !jump_down_;
     jump_down_ = jump;
     MotionParameters parameters;
-    parameters.world_extent = std::int32_t(loaded_terrain_->data().prefix.field);
-    step_motion(*motion_, input, parameters, std::min(seconds, .1f), nullptr, ground);
+    parameters.world_extent =
+        loaded_terrain_ ? std::int32_t(loaded_terrain_->data().prefix.field) : 0;
+    step_motion(*motion_, input, parameters, std::min(seconds, .1f), collision, ground);
     // 00437050: while a movement key is held the position is sent every
     // 500 ms (state flag 0x80 clear); releasing sends one final packet with 0x80
     // set. 0x40 marks a grounded player.
@@ -528,7 +535,8 @@ void Application::update_character_preview(float seconds) {
         character_preview_key_.clear();
         character_preview_failed_ = false;
     };
-    if (screen() != Screen::characters && !(screen() == Screen::loading && loaded_terrain_)) {
+    if (screen() != Screen::characters &&
+        !(screen() == Screen::loading && (loaded_terrain_ || loaded_dungeon_))) {
         clear();
         return;
     }
@@ -621,7 +629,7 @@ void Application::label(std::string_view value, float x, float y, std::uint32_t 
 bool Application::draw_world_actor() {
     auto world = connection_.world();
     auto* player = world ? world->player() : nullptr;
-    if (!player || !loaded_terrain_ || !character_preview_)
+    if (!player || (!loaded_terrain_ && !loaded_dungeon_) || !character_preview_)
         return false;
     const auto terrain_scale = default_terrain_scale();
     const float x = motion_ ? motion_->position[0] : player->position[0],
@@ -629,6 +637,7 @@ bool Application::draw_world_actor() {
     if (!std::isfinite(x) || !std::isfinite(z))
         return false;
     const float y = motion_ ? motion_->position[1] - .9f
+                    : !loaded_terrain_ ? player->position[1]
                             : loaded_terrain_->heights().world_height(
         x, z, terrain_scale.inverse_horizontal, terrain_scale.vertical, terrain_scale.offset,
         terrain_scale.inverse_vertical);
@@ -650,18 +659,22 @@ bool Application::draw_world_actor() {
     placement.m[3][0] = x;
     placement.m[3][1] = y;
     placement.m[3][2] = z;
-    actor_shadow_.render(feet, radius, [&] { character_preview_->draw_shadow_caster_at(placement); });
+    if (loaded_terrain_)
+        actor_shadow_.render(feet, radius, [&] { character_preview_->draw_shadow_caster_at(placement); });
     if (fog_known_) {
         scene.fog = {fog_start_, fog_end_, 1.f, 0.f};
         scene.fog_color = {fog_color_[0], fog_color_[1], fog_color_[2], 1.f};
     }
     renderer_.scene(scene);
-    loaded_terrain_->draw(identity);
+    if (loaded_dungeon_)
+        loaded_dungeon_->draw(identity);
+    if (loaded_terrain_)
+        loaded_terrain_->draw(identity);
     if (loaded_objects_)
         loaded_objects_->draw({x, z}, 350.f, identity);
     if (loaded_water_)
         loaded_water_->draw(identity, y + radius * 1.3f);
-    if (actor_shadow_.valid())
+    if (loaded_terrain_ && actor_shadow_.valid())
         loaded_terrain_->draw_shadow(identity, actor_shadow_.texture(), actor_shadow_.sampling());
     character_preview_->draw_at(placement);
     return true;
@@ -684,7 +697,7 @@ void Application::render() {
     renderer_.scene(scene);
     if (character_preview_ && page == Screen::characters)
         character_preview_->draw();
-    else if (show_terrain && character_preview_ && draw_world_actor())
+    else if ((show_terrain || show_dungeon) && character_preview_ && draw_world_actor())
         ;
     else if (show_terrain)
         loaded_terrain_->draw(loaded_terrain_->fitted_world());
