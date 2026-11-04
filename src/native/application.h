@@ -112,6 +112,12 @@ class Application {
     // movement keys (player_motion.h); not synchronised with the server.
     std::optional<MotionState> motion_;
     bool jump_down_ = false, moving_ = false;
+    // World fog: colour from the descriptor's environment block; the distances
+    // start at 50 / 100 and grow by 20 units per second up to the highest
+    // graphics preset (200 / 400), as `004354b0` does.
+    std::array<float, 3> fog_color_{};
+    float fog_start_ = 50.f, fog_end_ = 100.f;
+    bool fog_known_ = false;
     std::chrono::steady_clock::time_point last_move_sync_{};
     void update_motion(float seconds);
     std::string loaded_terrain_path_;

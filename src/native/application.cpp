@@ -13,6 +13,7 @@
 #include "math.h"
 #include <openssl/crypto.h>
 #include <algorithm>
+#include <cstring>
 #include <cmath>
 #include <fstream>
 #include <cstdlib>
@@ -407,6 +408,7 @@ bool Application::frame() {
         loaded_water_.reset();
         loaded_objects_.reset();
         motion_.reset();
+        fog_known_ = false;
         loaded_terrain_path_.clear();
     } else if (*map_path != loaded_terrain_path_) {
         loaded_terrain_.reset();
@@ -438,6 +440,14 @@ bool Application::frame() {
                             516 * field.materials.size() + 0x100,
                         true);
                     loaded_objects_ = std::make_unique<WorldObjects>(renderer_, archive_, tail);
+                    for (int channel = 0; channel < 3; ++channel) {
+                        float value;
+                        std::memcpy(&value, tail.environment.data() + 24 + 4 * channel, 4);
+                        fog_color_[channel] = std::clamp(value, 0.f, 255.f) / 255.f;
+                    }
+                    fog_start_ = 50.f;
+                    fog_end_ = 100.f;
+                    fog_known_ = true;
                 } catch (const std::exception& e) {
                     std::fprintf(stderr, "World objects: %s\n", e.what());
                 }
@@ -457,6 +467,10 @@ bool Application::frame() {
     return running_;
 }
 void Application::update_motion(float seconds) {
+    if (fog_known_) {
+        fog_start_ = std::min(200.f, fog_start_ + 20.f * seconds);
+        fog_end_ = std::min(400.f, fog_end_ + 20.f * seconds);
+    }
     auto world = connection_.world();
     auto* player = world ? world->player() : nullptr;
     if (!loaded_terrain_ || screen() != Screen::loading || !player ||
@@ -637,6 +651,10 @@ bool Application::draw_world_actor() {
     placement.m[3][1] = y;
     placement.m[3][2] = z;
     actor_shadow_.render(feet, radius, [&] { character_preview_->draw_shadow_caster_at(placement); });
+    if (fog_known_) {
+        scene.fog = {fog_start_, fog_end_, 1.f, 0.f};
+        scene.fog_color = {fog_color_[0], fog_color_[1], fog_color_[2], 1.f};
+    }
     renderer_.scene(scene);
     loaded_terrain_->draw(identity);
     if (loaded_objects_)
@@ -649,8 +667,11 @@ bool Application::draw_world_actor() {
     return true;
 }
 void Application::render() {
-    renderer_.clear({.025f, .035f, .06f, 1});
     auto page = screen();
+    // The original's frame clear colour (renderer +0x1624) is only ever written
+    // as opaque black (`00543852`); the native UI keeps its own backdrop.
+    renderer_.clear(fog_known_ && page == Screen::loading ? Color{0, 0, 0, 1}
+                                                          : Color{.025f, .035f, .06f, 1});
     SceneUniforms scene;
     bool show_terrain = bool(loaded_terrain_) && page == Screen::loading;
     bool show_dungeon = bool(loaded_dungeon_) && page == Screen::loading;

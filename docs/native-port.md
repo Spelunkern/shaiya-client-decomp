@@ -130,7 +130,10 @@ launcher until the native application supports the client behavior.
   every local descriptor. Fog distances are not in the file: `004354b0` starts
   them at 50 / 100 and grows them by `006bc8b0 * frame delta` up to the graphics
   preset maxima (`00719884`/`00719888`: 200/400, 200/300 or 150/200), so the
-  native scene does not apply fog yet.
+  native scene applies fog with the descriptor's colour and distances growing
+  from 50 / 100 by 20 units per second to the startup preset's 200 / 400
+  (`00409662`), and clears to black (the only value ever written to the
+  clear-colour field, `00543852`) while the connected world is shown.
 - Model placements (`world_objects.{h,cpp}`): the building, shape, tree and
   grass lists (`004462d0`) hold a model index and three vectors: position,
   forward and up. `005a7c00` builds the matrix with `005363d0` (right = up x
