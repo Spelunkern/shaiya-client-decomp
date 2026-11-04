@@ -6,6 +6,8 @@
 #include "terrain_resource.h"
 #include "dungeon_resource.h"
 #include "basic_water.h"
+#include "world_objects.h"
+#include "world_tail.h"
 #include "sdata.h"
 #include "math.h"
 #include <openssl/crypto.h>
@@ -16,6 +18,9 @@
 #include <cstdio>
 
 namespace genesis {
+std::size_t Application::world_objects_drawn() const {
+    return loaded_objects_ ? loaded_objects_->drawn_last() : 0;
+}
 std::size_t Application::terrain_material_count() const {
     return loaded_terrain_ ? loaded_terrain_->data().materials.size() : 0;
 }
@@ -399,11 +404,13 @@ bool Application::frame() {
         loaded_terrain_.reset();
         loaded_dungeon_.reset();
         loaded_water_.reset();
+        loaded_objects_.reset();
         loaded_terrain_path_.clear();
     } else if (*map_path != loaded_terrain_path_) {
         loaded_terrain_.reset();
         loaded_dungeon_.reset();
         loaded_water_.reset();
+        loaded_objects_.reset();
         loaded_terrain_path_ = *map_path;
         try {
             auto bytes = archive_.read(*map_path);
@@ -422,6 +429,16 @@ bool Application::frame() {
                 auto water_name = decode_terrain_water_name(
                     bytes, field.prefix.bytes_consumed + field.grid.bytes_consumed + 4 +
                                516 * field.materials.size());
+                try {
+                    auto tail = decode_world_tail(
+                        bytes,
+                        field.prefix.bytes_consumed + field.grid.bytes_consumed + 4 +
+                            516 * field.materials.size() + 0x100,
+                        true);
+                    loaded_objects_ = std::make_unique<WorldObjects>(renderer_, archive_, tail);
+                } catch (const std::exception& e) {
+                    std::fprintf(stderr, "World objects: %s\n", e.what());
+                }
                 if (!water_name.empty())
                     loaded_water_ = std::make_unique<BasicWater>(
                         renderer_, archive_, "data/entity/water/" + water_name);
@@ -561,6 +578,8 @@ bool Application::draw_world_actor() {
     actor_shadow_.render(feet, radius, [&] { character_preview_->draw_shadow_caster_at(placement); });
     renderer_.scene(scene);
     loaded_terrain_->draw(identity);
+    if (loaded_objects_)
+        loaded_objects_->draw({x, z}, 350.f, identity);
     if (loaded_water_)
         loaded_water_->draw(identity, y + radius * 1.3f);
     if (actor_shadow_.valid())

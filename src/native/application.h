@@ -11,6 +11,7 @@ class CharacterPreview;
 class TerrainResource;
 class DungeonResource;
 class BasicWater;
+class WorldObjects;
 struct ItemTable;
 struct AppSettings {
     std::filesystem::path assets = "assets", font, preferences;
@@ -40,6 +41,10 @@ class Application {
     bool character_preview_ready() const {
         return bool(character_preview_);
     }
+    bool objects_ready() const {
+        return bool(loaded_objects_);
+    }
+    std::size_t world_objects_drawn() const;
     bool water_ready() const {
         return bool(loaded_water_);
     }
@@ -94,6 +99,7 @@ class Application {
     std::unique_ptr<TerrainResource> loaded_terrain_;
     std::unique_ptr<DungeonResource> loaded_dungeon_;
     std::unique_ptr<BasicWater> loaded_water_;
+    std::unique_ptr<WorldObjects> loaded_objects_;
     std::string loaded_terrain_path_;
     std::chrono::steady_clock::time_point previous_frame_ = std::chrono::steady_clock::now();
     std::string username_, password_, status_;

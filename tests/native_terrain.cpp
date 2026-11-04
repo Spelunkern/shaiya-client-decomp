@@ -191,6 +191,7 @@ int main(int argc, char** argv) {
                     ++missing_materials;
             if (missing_materials != 593)
                 throw std::runtime_error("Original terrain material sentinel coverage changed");
+            auto actual_terrain_grid = decoded.grid;
             auto actual_terrain =
                 genesis::TerrainHeights::from_grid(dimension, std::move(decoded.grid));
             auto actual_height = actual_terrain.world_height(200.f, 200.f, .5f, .02f, -200.f, 50.f);
@@ -211,6 +212,30 @@ int main(int argc, char** argv) {
                     water.frames[0] != "B_caust00.dds" ||
                     !archive.find("data/entity/water/" + water.frames[31]))
                     throw std::runtime_error("B1_Water.wtr differs from the recovered contract");
+            }
+            {
+                // The placement positions of world 0 sit on its terrain surface,
+                // which confirms record layout, vector order and height scale.
+                auto tail = genesis::decode_world_tail(
+                    source,
+                    decoded.prefix.bytes_consumed + 3 * std::size_t(dimension) * dimension + 4 +
+                        516 * materials.size() + 0x100,
+                    true);
+                auto surface = genesis::TerrainHeights::from_grid(dimension, actual_terrain_grid);
+                std::size_t tested = 0, on_surface = 0;
+                for (std::size_t list = 0; list < 4; ++list)
+                    for (const auto& record : tail.placements[list].records) {
+                        float x, y, z;
+                        std::memcpy(&x, &record[4], 4);
+                        std::memcpy(&y, &record[8], 4);
+                        std::memcpy(&z, &record[12], 4);
+                        auto height = surface.world_height(x, z, .5f, .02f, -200.f, 50.f);
+                        ++tested;
+                        if (std::fabs(height - y) < 1.f)
+                            ++on_surface;
+                    }
+                if (tested < 5000 || on_surface * 10 < tested * 9)
+                    throw std::runtime_error("World 0 model placements are not on the terrain");
             }
             unsigned fields = 0, dungeons = 0, grids = 0, with_water = 0, no_water = 0, field_tails = 0, dungeon_tails = 0;
             for (const auto& path : archive.paths()) {

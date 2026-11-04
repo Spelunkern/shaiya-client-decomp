@@ -78,7 +78,7 @@ add_executable(genesis_login_probe native/login_probe.cpp)
 target_link_libraries(genesis_login_probe PRIVATE genesis_network)
 
 add_library(genesis_scene STATIC src/native/basic_water.cpp src/native/model_resource.cpp src/native/dungeon_resource.cpp src/native/skin_resource.cpp src/native/character_resource.cpp src/native/character_preview.cpp src/native/cloth_resource.cpp)
-target_sources(genesis_scene PRIVATE src/native/terrain_resource.cpp src/native/player_motion.cpp)
+target_sources(genesis_scene PRIVATE src/native/terrain_resource.cpp src/native/player_motion.cpp src/native/world_objects.cpp)
 target_link_libraries(genesis_scene PUBLIC genesis_renderer genesis_image genesis_model genesis_data shaiya_native_archive genesis_network)
 add_library(genesis_app STATIC src/native/application.cpp src/native/encoding.cpp src/client/config/development_version.cpp)
 target_link_libraries(genesis_app PUBLIC genesis_text genesis_network genesis_scene)

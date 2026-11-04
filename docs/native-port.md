@@ -123,6 +123,17 @@ launcher until the native application supports the client behavior.
   final 44-byte block. Decoding all 58 DUN and 33 FLD local descriptors ends
   exactly at the end of each file. Record payloads are retained raw: the sizes
   are established, the later gameplay consumers of their fields are not.
+- Model placements (`world_objects.{h,cpp}`): the building, shape, tree and
+  grass lists (`004462d0`) hold a model index and three vectors: position,
+  forward and up. `005a7c00` builds the matrix with `005363d0` (right = up x
+  forward, up' = forward x right; rows right/up'/forward/position; no scale).
+  Over 90% of world 0's 9,427 placements sit within one unit of its terrain
+  surface, confirming the layout. `Application` draws the SMOD models
+  (`data/entity/<list>/<name>`) within 350 units of the player in the
+  connected-world scene; that radius is a native performance bound, not a
+  recovered rule, and the tree/grass loaders (`005aeec0`, `005ae4f0`,
+  `005ae540`) may differ from plain SMOD drawing. The animated lists (`vani`,
+  `mani`), embedded DG fortresses and effects are not drawn.
 - Water definitions: every FLD descriptor stores, right after its material
   records, a 0x100-byte `.wtr` name (31 of 33 local fields; two are empty,
   which the original tolerates). `decode_water_definition` ports `005b0670`:
