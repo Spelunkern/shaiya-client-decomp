@@ -40,11 +40,22 @@ launcher until the native application supports the client behavior.
   `texture_apply_color_key` (24-bit RGB match zeroes alpha). CPU tests cover
   mip averaging/clamping, that resizing a solid color reproduces it at
   several target sizes, that a two-column image actually blends instead of
-  nearest-sampling, and color-key matching. `Renderer::texture_rgba` still
-  only offers GPU `glGenerateMipmap` mip generation; these CPU algorithms are
-  not wired into any texture upload path yet, matching the other render-API
-  primitives above — they exist for the `requested_width`/`requested_height`/
-  `level_limit`/`color_key` policies once something authors them.
+  nearest-sampling, and color-key matching. `decode_texture_levels` assembles the complete `load_texture` policy on top
+  of them (requested/power-of-two sizing, authored DDS levels versus generated
+  box mips, `level_limit`, per-level color key, triangle resize) and
+  `texture_quality_options` ports `quality_options()`. `Renderer::load_texture`
+  uploads the resulting chain through `texture_levels` with no GPU mip
+  generation; cloth textures use it. Other call sites still use
+  `texture_rgba` (GPU `glGenerateMipmap` or one level) until their authored
+  options are traced.
+- `GlowEffect` ports the `native_postfx_ports.cpp` orchestration: capture,
+  8-tap half-size downsample, up to 16 gaussian x/y iterations, additive
+  composite with the original strength rule. `ShadowProjection`/`ShadowMap`
+  port the actor shadow camera, projective bias and offscreen pass scoping.
+  Both are tested but no game scene calls them yet.
+- F12 saves a lossless PNG screenshot (`screenshots/`), replacing the original
+  WIC JPEG capture. `Renderer::resource_counts()` exposes live textures,
+  meshes and targets so owners can verify unloading.
 - CPU texture decoding from DDS BC1/2/3 and packed channels, TGA/RLE and BMP.
   No IJL, WIC or legacy DLL is used by these components.
 - SAH/SAF lookup, listing, extraction and fixed-width offsets; portable SMOD
@@ -247,10 +258,10 @@ requires the selected character preview to load and unload with the UI state.
 
 ## Remaining migration
 
-1. Complete the rendering resource API: resource unloading/update policies, full reflection /
-   shadow / glow orchestration, full font layout/outline policies and screenshots (custom
-   blend factors and the texture quality-policy algorithms are implemented but not wired
-   into any call site; see above). Compare representative frames against DX11.
+1. Finish the rendering resource API: reflection orchestration, full font
+   layout/outline policies, and connecting glow/shadow/custom blends/texture
+   policies to scenes (blocked on world/actor ownership). Compare
+   representative frames against DX11.
 2. Port world/model/actor/animation loaders and scene ownership. Replace fixed
    offsets and packed pointer-bearing owners with typed host structures while
    retaining disk/network layouts.
