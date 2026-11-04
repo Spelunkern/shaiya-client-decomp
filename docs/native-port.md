@@ -310,6 +310,33 @@ sets. Graphics tests assemble and render all 16 base profiles, verify normal
 action boundary/reset behavior and visible animation, and the application test
 requires the selected character preview to load and unload with the UI state.
 
+## Player movement contract (traced, not yet implemented)
+
+Decompiled from the original `Game.exe` with `tools/ghidra/DumpFunctions.java`
+(headless: import with `-noanalysis`, then `-process` with the script, arguments
+are the output file followed by hex addresses). Findings:
+
+- Opcode `0x0501` (sender `00598980`) carries, after the two-byte opcode, one
+  state byte produced by `0058d760`, a 16-bit orientation in degrees (0..360,
+  mirrored as 360 - angle when the facing x is positive), then x, y, z floats;
+  total 17 bytes. The sender refuses non-finite coordinates. `00598ab0`
+  (`0x0502`) and `00598b00` (`0x0503`) send a 32-bit target id and stamp
+  `GetTickCount`; `00598b80` (`0x050a`) is rate-limited to once per second
+  after one of those.
+- `00437050` is the periodic movement sync: while the movement key state
+  (`0x0085d1d0` == 1) is held it sends every 500 ms (`timeGetTime`), and sends
+  one final packet on release. The local player object is `DAT_0085cfbc`:
+  position at +0x10/+0x14/+0x18, facing vector at +0x1c/+0x24, mode at +0xdc,
+  state bytes at +0x174 and +0x268.
+- Ground height is `005a2c30(x, z)` for outdoor fields and `005a4d20(x, z)`
+  when `DAT_0071d0f9` is set (dungeon DG); the same dual dispatch appears in
+  every height consumer (`0044e9e0`, `0046b020`, rain particles, ...).
+- The main per-frame owner is the very large `0043bfa0` (movement toward a
+  click target, attack range checks with `fStack_6f4`, 250 ms re-send
+  throttles). Its speed/arrival constants (`006bc85c`, `006bca18`) and the
+  per-frame position integration have not been isolated yet; no movement is
+  invented in the native client until they are.
+
 ## Remaining migration
 
 1. Rendering API: components exist and are tested; what remains is
