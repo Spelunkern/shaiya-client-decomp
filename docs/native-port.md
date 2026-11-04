@@ -346,6 +346,23 @@ are the output file followed by hex addresses). Findings:
   -0.4 is held there with the water flag set, which matches the water plane at
   y = 0). The ground clamp (`005a2c30` + 0.9) and its jump/landing flags are
   traced but entangled with `0043bfa0` state and are not ported.
+- Ported (`collision.{h,cpp}`): the ellipsoid sweep. `check_triangle` follows
+  `005a0ef0` (plane, vertex and edge roots with `005a0080`, the sign-bit
+  triangle test of `005a0170`, nearest-hit bookkeeping), `collide_and_slide`
+  follows `00437b60` (shorten to distance - 0.05, slide plane, recurse while
+  the residual is at least 0.05, at most six passes) and `move_with_collision`
+  follows `004383d0` (horizontal pass with vertical velocity forced to zero and
+  never ending below the start height, then a non-recursive vertical pass;
+  radii 0.3 / 0.9 / 0.3). `check_dungeon` feeds the DG's node collision
+  triangles, pruned by a conservative box test instead of the original's
+  `005a4750` octree/box tests (`005a39a0`, `005a3880`), which are not ported;
+  the result can differ from the original only for exact-distance ties.
+  Float expression order follows the decompilation, but x87 extended
+  intermediates are not reproduced bit for bit and there is no x86 fixture
+  yet. Tests: analytic floor/wall/slide cases and 40 real-dungeon floor probes
+  (`A1_Dun1_1F`, `A1_Dun1_2F`, `A3_DUN1_1F`). Entity collision lists
+  (`005a6fb0`, `00537f40`) and terrain-field entities remain unported; outdoor
+  fields only use the ground clamp.
 - Traced, not yet ported: per frame the movement delta (speed * frame delta
   along the heading; strafing/backward multipliers 0.5, 1, `006bca08`, 2,
   `006bca04` by class) goes to `004383d0`, an ellipsoid collide-and-slide
