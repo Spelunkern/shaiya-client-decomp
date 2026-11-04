@@ -397,6 +397,22 @@ GLuint Renderer::texture_levels(const std::vector<Image>& levels) {
     check("Texture level upload");
     return id;
 }
+GLuint Renderer::texture_rg_snorm(int width, int height, const std::int8_t* pixels) {
+    GLint maximum = 0;
+    gl_.GetIntegerv(GL_MAX_TEXTURE_SIZE, &maximum);
+    if (width <= 0 || height <= 0 || width > maximum || height > maximum || !pixels)
+        throw std::invalid_argument("Invalid snorm texture");
+    GLuint id = 0;
+    gl_.GenTextures(1, &id);
+    textures_.push_back(id);
+    gl_.BindTexture(GL_TEXTURE_2D, id);
+    gl_.PixelStorei(GL_UNPACK_ALIGNMENT, 1);
+    gl_.TexImage2D(GL_TEXTURE_2D, 0, GL_RG8_SNORM, width, height, 0, GL_RG, GL_BYTE, pixels);
+    gl_.TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    gl_.TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    check("Snorm texture upload");
+    return id;
+}
 GLuint Renderer::load_texture(const std::vector<std::uint8_t>& encoded,
                               const TextureLoadOptions& options) {
     return texture_levels(decode_texture_levels(encoded, options));

@@ -53,6 +53,17 @@ launcher until the native application supports the client behavior.
   composite with the original strength rule. `ShadowProjection`/`ShadowMap`
   port the actor shadow camera, projective bias and offscreen pass scoping.
   Both are tested but no game scene calls them yet.
+- `water.h` ports the water/planar-reflection orchestration: the procedural
+  R8G8 signed normal source, wrapped height-to-normal conversion, ±2048 quads,
+  mode 0/1 animation, projective-bias capture of reflection/refraction cameras
+  with white-cleared capture targets, `draw_water` (both modes) and the
+  underwater attenuation draw, which is the first draw site of
+  `Style::custom_blend`. GPU pixel tests cover all of them; no world scene
+  instantiates water yet.
+- `Text::draw_in_rect` ports DrawText layout (CRLF, centering, vertical
+  alignment, CALCRECT, clipping) and `Text::outlined_label` ports the
+  five-pass outlined label with `<<` segment markup and blue-key transparency.
+  Complex shaping (the original's Uniscribe path) remains unported.
 - F12 saves a lossless PNG screenshot (`screenshots/`), replacing the original
   WIC JPEG capture. `Renderer::resource_counts()` exposes live textures,
   meshes and targets so owners can verify unloading.
@@ -258,10 +269,10 @@ requires the selected character preview to load and unload with the UI state.
 
 ## Remaining migration
 
-1. Finish the rendering resource API: reflection orchestration, full font
-   layout/outline policies, and connecting glow/shadow/custom blends/texture
-   policies to scenes (blocked on world/actor ownership). Compare
-   representative frames against DX11.
+1. Rendering API: components exist and are tested; what remains is
+   instantiating glow/shadow/water/texture policies from world and actor
+   scenes (item 2), Uniscribe-equivalent shaping, and side-by-side frame
+   comparison against DX11 once a scene can be drawn by both.
 2. Port world/model/actor/animation loaders and scene ownership. Replace fixed
    offsets and packed pointer-bearing owners with typed host structures while
    retaining disk/network layouts.

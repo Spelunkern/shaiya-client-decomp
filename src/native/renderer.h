@@ -154,6 +154,12 @@ class Renderer {
     GLuint texture_levels(const std::vector<Image>& levels);
     // decode_texture_levels() followed by texture_levels().
     GLuint load_texture(const std::vector<std::uint8_t>& encoded, const TextureLoadOptions& options);
+    // Two-channel signed-normalized texture (R8G8_SNORM), used by water's
+    // procedural normal map. Pixels are interleaved r,g int8 values.
+    GLuint texture_rg_snorm(int width, int height, const std::int8_t* pixels);
+    const SceneUniforms& current_scene() const {
+        return scene_;
+    }
     void update_texture(GLuint texture, int x, int y, int width, int height, const void* pixels);
     void release_texture(GLuint texture);
     void bind_images(std::array<GLuint, 4> images);
