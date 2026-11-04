@@ -334,8 +334,24 @@ are the output file followed by hex addresses). Findings:
 - The main per-frame owner is the very large `0043bfa0` (movement toward a
   click target, attack range checks with `fStack_6f4`, 250 ms re-send
   throttles). Its speed/arrival constants (`006bc85c`, `006bca18`) and the
-  per-frame position integration have not been isolated yet; no movement is
-  invented in the native client until they are.
+  per-frame position integration are partly isolated (below); no movement is
+  invented in the native client until the rest is.
+- Ported and tested (`movement.{h,cpp}`): `0058d760` state byte (0x80/0x40
+  flags), the `0x0501` encoder (non-finite coordinates send nothing), the
+  `0x0502`/`0x0503` target packets, and the forward speed rule: base 5.0
+  (`004092a7`), speed class byte +0x281 shifting it -2/-1/0/+1/+2 for classes
+  0..4 and zeroing it for 0xff, mounted actors 7.0 (8.0 for mount kind 1).
+- Traced, not yet ported: per frame the movement delta (speed * frame delta
+  along the heading; strafing/backward multipliers 0.5, 1, `006bca08`, 2,
+  `006bca04` by class) goes to `004383d0`, an ellipsoid collide-and-slide
+  with radii (0.3, 0.9, 0.3) (`3e99999a`, `3f666666`, `3e99999a`) over
+  `00437b60`, which queries terrain triangles through `005a2c70`/`005b3a80`
+  (world scaled by `0224e640`); its result becomes the new position at +0x10.
+  Afterwards gravity (`00708c98`, integrated with the frame delta) and a
+  ground clamp to `005a2c30(x, z)` plus the `006bc868` offset apply
+  (dungeons use a fixed constant `006be930` instead when the world is a DUN).
+  The heading blends toward its target by speed * 0.5 * delta, snapping within
+  0.005 (`006bc85c`).
 
 ## Remaining migration
 
