@@ -23,33 +23,6 @@ extern const unsigned char code_004d5bb0[] __asm__("_FUN_004d5bb0");
 extern const unsigned char code_004d5bd0[] __asm__("_FUN_004d5bd0");
 extern const unsigned char code_004d5bf0[] __asm__("_FUN_004d5bf0");
 extern const unsigned char code_004d5c10[] __asm__("_FUN_004d5c10");
-extern const unsigned char code_006b0f30[] __asm__("_FUN_006b0f30");
-extern const unsigned char code_006b1040[] __asm__("_FUN_006b1040");
-extern const unsigned char code_006b104e[] __asm__("_FUN_006b104e");
-extern const unsigned char code_006b105c[] __asm__("_FUN_006b105c");
-extern const unsigned char code_006b106a[] __asm__("_FUN_006b106a");
-extern const unsigned char code_006b1078[] __asm__("_FUN_006b1078");
-extern const unsigned char code_006b1086[] __asm__("_FUN_006b1086");
-extern const unsigned char code_006b1094[] __asm__("_FUN_006b1094");
-extern const unsigned char code_006b10a2[] __asm__("_FUN_006b10a2");
-extern const unsigned char code_006b10b0[] __asm__("_FUN_006b10b0");
-extern const unsigned char code_006b10be[] __asm__("_FUN_006b10be");
-extern const unsigned char code_006b10cc[] __asm__("_FUN_006b10cc");
-extern const unsigned char code_006b10da[] __asm__("_FUN_006b10da");
-extern const unsigned char code_006b10e8[] __asm__("_FUN_006b10e8");
-extern const unsigned char code_006b10f6[] __asm__("_FUN_006b10f6");
-extern const unsigned char code_006b1104[] __asm__("_FUN_006b1104");
-extern const unsigned char code_006b1112[] __asm__("_FUN_006b1112");
-extern const unsigned char code_006b1120[] __asm__("_FUN_006b1120");
-extern const unsigned char code_006b112e[] __asm__("_FUN_006b112e");
-extern const unsigned char code_006b113c[] __asm__("_FUN_006b113c");
-extern const unsigned char code_006b114a[] __asm__("_FUN_006b114a");
-extern const unsigned char code_006b1158[] __asm__("_FUN_006b1158");
-extern const unsigned char code_006b1166[] __asm__("_FUN_006b1166");
-extern const unsigned char code_006b1174[] __asm__("_FUN_006b1174");
-extern const unsigned char code_006b1182[] __asm__("_FUN_006b1182");
-extern const unsigned char code_006b1190[] __asm__("_FUN_006b1190");
-extern const unsigned char code_006b119e[] __asm__("_FUN_006b119e");
 extern const void* const dat_006c2bc0[1] = {code_004ce870};
 extern const void* const dat_006c2be4[1] = {code_004ce740};
 extern const void* const dat_006c2be8[1] = {code_004d1030};
@@ -73,35 +46,4 @@ extern const void* const dat_006c2cac[1] = {code_004d5bb0};
 extern const void* const dat_006c2cb0[1] = {code_004d5bd0};
 extern const void* const dat_006c2cb4[1] = {code_004d5bf0};
 extern const void* const dat_006c2cb8[1] = {code_004d5c10};
-extern const CxxUnwindEntry dat_006ffd30[26] = {{-1, const_cast<unsigned char*>(code_006b1040)},
-                                                {0, const_cast<unsigned char*>(code_006b104e)},
-                                                {1, const_cast<unsigned char*>(code_006b105c)},
-                                                {2, const_cast<unsigned char*>(code_006b106a)},
-                                                {3, const_cast<unsigned char*>(code_006b1078)},
-                                                {4, const_cast<unsigned char*>(code_006b1086)},
-                                                {5, const_cast<unsigned char*>(code_006b1094)},
-                                                {6, const_cast<unsigned char*>(code_006b10a2)},
-                                                {7, const_cast<unsigned char*>(code_006b10b0)},
-                                                {8, const_cast<unsigned char*>(code_006b10be)},
-                                                {9, const_cast<unsigned char*>(code_006b10cc)},
-                                                {10, const_cast<unsigned char*>(code_006b10da)},
-                                                {11, const_cast<unsigned char*>(code_006b10e8)},
-                                                {12, const_cast<unsigned char*>(code_006b10f6)},
-                                                {13, const_cast<unsigned char*>(code_006b1104)},
-                                                {14, const_cast<unsigned char*>(code_006b1112)},
-                                                {15, const_cast<unsigned char*>(code_006b1120)},
-                                                {16, const_cast<unsigned char*>(code_006b112e)},
-                                                {17, const_cast<unsigned char*>(code_006b113c)},
-                                                {18, const_cast<unsigned char*>(code_006b114a)},
-                                                {19, const_cast<unsigned char*>(code_006b1158)},
-                                                {20, const_cast<unsigned char*>(code_006b1166)},
-                                                {21, const_cast<unsigned char*>(code_006b1174)},
-                                                {22, const_cast<unsigned char*>(code_006b1182)},
-                                                {23, const_cast<unsigned char*>(code_006b1190)},
-                                                {24, const_cast<unsigned char*>(code_006b119e)}};
-extern const CxxUnwindEntry dat_006ff8e4[1] = {{-1, const_cast<unsigned char*>(code_006b0f30)}};
-extern const CxxFuncInfo dat_006ffe00 = {
-    0x19930520, 26, const_cast<CxxUnwindEntry*>(dat_006ffd30), 0, nullptr, 0, nullptr};
-extern const CxxFuncInfo dat_006ff8ec = {
-    0x19930520, 1, const_cast<CxxUnwindEntry*>(dat_006ff8e4), 0, nullptr, 0, nullptr};
 }

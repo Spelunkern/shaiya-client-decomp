@@ -99,13 +99,8 @@ void free_member(void* object, uint32_t offset) {
         member = nullptr;
     }
 }
-// Destroys an array allocated with new[]: its element count sits in the
-// cookie just before the first element, and the cookie is what gets freed.
-void delete_array(void*& member, uint32_t element_size, OriginalElementCallback destructor) {
-    void* first = member;
-    auto* cookie = reinterpret_cast<int32_t*>(first) - 1;
-    fun_005cdcbc(first, element_size, *cookie, destructor);
-    fun_005cdc59(cookie);
+void delete_array(void* first, uint32_t element_size, OriginalElementCallback destructor) {
+    original_delete_array(first, element_size, destructor);
 }
 void*& member_at(void* object, uint32_t offset) {
     return *reinterpret_cast<void**>(static_cast<uint8_t*>(object) + offset);

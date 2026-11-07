@@ -54,6 +54,17 @@ static_assert(sizeof(OriginalTreeHolder) == 0x10 && offsetof(OriginalTreeHolder,
 
 #define THISCALL __attribute__((thiscall))
 extern "C" {
+void fun_005cdc59(void* pointer);
+}
+// Destroys an array allocated with new[]: its element count sits in the
+// cookie just before the first element, and the cookie is what gets freed.
+inline void original_delete_array(void* first, uint32_t element_size,
+                                  OriginalElementCallback destructor) {
+    auto* cookie = static_cast<int32_t*>(first) - 1;
+    fun_005cdcbc(first, element_size, *cookie, destructor);
+    fun_005cdc59(cookie);
+}
+extern "C" {
 // Virtual tables: one deleting-destructor slot each.
 extern const void* const dat_006be5cc[1];
 extern const void* const dat_006c1c58[1];
@@ -156,6 +167,16 @@ void THISCALL FUN_004d3ea0(OriginalPointerVectorOwner* self);
 // Polymorphic object without members of its own.
 void* THISCALL FUN_004a76f0(void* self);
 void THISCALL FUN_004a7710(void* self);
+
+// Player-state lifetime.
+void* THISCALL FUN_004d5c30(void* self);
+void THISCALL FUN_004d66a0(void* self);
+void THISCALL FUN_004d4100(void* self);
+void* THISCALL FUN_004cc0d0(void* self);
+void* THISCALL FUN_004ce570(void* self);
+void THISCALL FUN_004ce610(void* self);
+void THISCALL FUN_004ce860(void* self);
+uint32_t THISCALL FUN_00555f30(void* self);
 
 bool THISCALL FUN_0059fe40(const int32_t* descriptor, void* buffer, uint32_t size);
 bool THISCALL FUN_005b3250(void** self, const int32_t* descriptor);
