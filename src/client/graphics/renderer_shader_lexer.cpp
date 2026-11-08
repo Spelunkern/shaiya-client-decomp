@@ -45,6 +45,10 @@ u32 __attribute__((thiscall)) FUN_00606993(void*);
 void* __attribute__((thiscall)) FUN_00651c2f(void*, u32, u32);
 // Lexer warnings (renderer_shader_storage.cpp).
 extern const char dat_006dff78[], dat_006dff9c[], dat_006dffbc[], dat_006dffdc[];
+extern const char dat_006e0000[], dat_006e0028[], dat_006e004c[];
+u32 __attribute__((thiscall)) FUN_0060749f(void*, u32, u32);
+u32 __attribute__((thiscall)) FUN_0060773d(void*, u32, u32);
+u32 __attribute__((thiscall)) FUN_00607780(void*, u32, u32);
 // The client's atof (still an instruction listing); the result is in ST0.
 double FUN_005cf914(const char*);
 u32 __attribute__((thiscall)) FUN_006069ee(void*, u32, u32);
@@ -341,4 +345,164 @@ extern "C" u32 __attribute__((thiscall)) FUN_006069ee(void* object, u32 start, u
         __builtin_memcpy(pointer(out), &value, 8);
     }
     return at - start;
+}
+// Original 0060749f..00607636 (thiscall, RET 8): one character of a
+// character or string literal, its value (sign-extended) through `out`.
+// Unless lexer flag 4 is set, a backslash starts an escape: \a \b \f \n \r
+// \t \v, up to three octal digits, \x and hexadecimal digits (modulo 2^32),
+// or the next character itself. A backslash at the end is reported (0x3ef)
+// and, as in the original, the byte after it is still read.
+extern "C" u32 __attribute__((thiscall)) FUN_0060749f(void* object, u32 start, u32 out) {
+    const u32 self = address(object);
+    const u32 end = word(self + 4);
+    if (start >= end)
+        return 0;
+    if (sbyte(start) != 0x5c || (word(self + 0x28) & 4)) {
+        put(out, static_cast<u32>(sbyte(start)));
+        return 1;
+    }
+    u32 at = start + 1;
+    if (at >= end)
+        warn(self, 0x3ef, dat_006e0000);
+    const int32_t c = sbyte(at);
+    static const unsigned char letters[7] = {0x61, 0x62, 0x66, 0x6e, 0x72, 0x74, 0x76};
+    static const unsigned char values[7] = {7, 8, 0x0c, 0x0a, 0x0d, 9, 0x0b};
+    for (u32 i = 0; i < 7; ++i)
+        if (c == letters[i]) {
+            put(out, values[i]);
+            return at + 1 - start;
+        }
+    if (c >= 0x30 && c <= 0x37) {
+        u32 limit = word(self + 4);
+        if (at + 3 < limit)
+            limit = at + 3;
+        u32 value = 0;
+        while (at < limit) {
+            const int32_t d = sbyte(at);
+            if (d < 0x30 || d > 0x37)
+                break;
+            value = static_cast<u32>(d) + value * 8 - 0x30;
+            ++at;
+        }
+        put(out, value);
+        return at - start;
+    }
+    if (c == 0x78) {
+        const u32 digits = at + 1;
+        if (digits < word(self + 4) && fun_005d926f(sbyte(digits))) {
+            at = digits;
+            u32 value = 0;
+            while (at < word(self + 4) && fun_005d926f(sbyte(at))) {
+                const int32_t d = sbyte(at);
+                value <<= 4;
+                if (d >= 0x61)
+                    value += static_cast<u32>(d) - 0x57;
+                else if (d >= 0x41)
+                    value += static_cast<u32>(d) - 0x37;
+                else
+                    value += static_cast<u32>(d) - 0x30;
+                ++at;
+            }
+            put(out, value);
+            return at - start;
+        }
+    }
+    put(out, static_cast<u32>(sbyte(at)));
+    return at + 1 - start;
+}
+// Original 0060773d..0060777e (thiscall, RET 8): a 'c' character literal.
+extern "C" u32 __attribute__((thiscall)) FUN_0060773d(void* object, u32 start, u32 out) {
+    const u32 self = address(object);
+    if (start >= word(self + 4) || sbyte(start) != 0x27)
+        return 0;
+    const u32 inner = start + 1;
+    const u32 bytes = FUN_0060749f(object, inner, out);
+    if (!bytes)
+        return 0;
+    const u32 close = inner + bytes;
+    if (close >= word(self + 4) || sbyte(close) != 0x27)
+        return 0;
+    return close - start + 1;
+}
+// Original 00607780..006078c8 (thiscall, RET 8): a "..." string literal, or
+// <...> with lexer flag 8. The first pass finds the closing character (or a
+// newline), counting escaped line ends at +0x1c; running into the end of the
+// text (0x3ee, the length is then cut there) or a newline (0x3ed) is
+// reported. The decoded text is then copied NUL-terminated into the arena,
+// skipping escaped line ends; the result is the length up to the closing
+// character, inclusive.
+extern "C" u32 __attribute__((thiscall)) FUN_00607780(void* object, u32 start, u32 out) {
+    const u32 self = address(object);
+    if (start >= word(self + 4))
+        return 0;
+    const int32_t open = sbyte(start);
+    int32_t close;
+    if (open == 0x22)
+        close = open;
+    else if (open == 0x3c && (word(self + 0x28) & 8))
+        close = 0x3e;
+    else
+        return 0;
+    const u32 content = start + 1;
+    u32 at = content;
+    if (at < word(self + 4)) {
+        do {
+            const int32_t c = sbyte(at);
+            if (c == close || c == 0x0a)
+                break;
+            if (c == 0x5c && !(word(self + 0x28) & 4)) {
+                const u32 end = word(self + 4);
+                ++at;
+                if (at < end) {
+                    const int32_t d = sbyte(at);
+                    if (d == 0x0a) {
+                        put(self + 0x1c, word(self + 0x1c) + 1);
+                    } else if (d == 0x0d && at + 1 < end && sbyte(at + 1) == 0x0a) {
+                        ++at;
+                        put(self + 0x1c, word(self + 0x1c) + 1);
+                    }
+                }
+            }
+            ++at;
+        } while (at < word(self + 4));
+    }
+    if (at >= word(self + 4)) {
+        at = word(self + 4);
+        warn(self, 0x3ee, dat_006e004c);
+    } else if (sbyte(at) == 0x0a) {
+        warn(self, 0x3ed, dat_006e0028);
+    }
+    const u32 stop = at, bytes = at - start;
+    u32 text = address(FUN_00651c2f(pointer(word(self + 0x2c)), bytes, 1));
+    if (!text)
+        return 0;
+    put(out, text);
+    u32 cursor = content;
+    u32 decoded = out;
+    for (;;) {
+        if (cursor + 1 < stop) {
+            u32 next = cursor + 1;
+            while (sbyte(cursor) == 0x5c && !(word(self + 0x28) & 4)) {
+                const int32_t d = sbyte(next);
+                if (d == 0x0a) {
+                    cursor += 2;
+                } else if (d == 0x0d && cursor + 2 < stop && sbyte(cursor + 2) == 0x0a) {
+                    cursor += 3;
+                } else {
+                    break;
+                }
+                next = cursor + 1;
+                if (next >= stop)
+                    break;
+            }
+        }
+        if (cursor >= stop)
+            break;
+        // The original decodes into its own `out` argument slot.
+        cursor += FUN_0060749f(object, cursor, address(&decoded));
+        put_byte(text, decoded);
+        ++text;
+    }
+    put_byte(text, 0);
+    return bytes + 1;
 }
