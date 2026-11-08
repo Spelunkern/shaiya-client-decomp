@@ -45,6 +45,9 @@ u32 __attribute__((thiscall)) FUN_00606993(void*);
 void* __attribute__((thiscall)) FUN_00651c2f(void*, u32, u32);
 // Lexer warnings (renderer_shader_storage.cpp).
 extern const char dat_006dff78[], dat_006dff9c[], dat_006dffbc[], dat_006dffdc[];
+// The client's atof (still an instruction listing); the result is in ST0.
+double FUN_005cf914(const char*);
+u32 __attribute__((thiscall)) FUN_006069ee(void*, u32, u32);
 u32 __attribute__((thiscall)) FUN_00606b79(void*, u32, u32);
 u32 __attribute__((thiscall)) FUN_00606d0b(void*, u32, u32);
 u32 __attribute__((thiscall)) FUN_00606d55(void*, u32, u32);
@@ -280,5 +283,62 @@ extern "C" u32 __attribute__((thiscall)) FUN_006073fc(void* object, u32 start, u
         put(out, value);
     if (overflow)
         warn(self, 0x3ec, dat_006dffdc);
+    return at - start;
+}
+// Original 006069ee..00606b77 (thiscall, RET 8): floating literal: digits
+// with an optional fraction, or '.' and digits, then an optional exponent
+// ('e' digits or 'e-' digits). Plain digits without '.' or exponent are not
+// a float (0). With `out`, the text is copied NUL-terminated into a stack
+// block ((length + 4) & ~3 bytes, through the stack probe) and converted with
+// the client's atof; the double is stored through `out`.
+extern "C" u32 __attribute__((thiscall)) FUN_006069ee(void* object, u32 start, u32 out) {
+    const u32 self = address(object);
+    u32 at = start;
+    bool integer_only = false;
+    if (at < word(self + 4) && fun_005d9235(sbyte(at))) {
+        do
+            ++at;
+        while (at < word(self + 4) && fun_005d9235(sbyte(at)));
+        const u32 end = word(self + 4);
+        if (at < end && sbyte(at) == 0x2e) {
+            ++at;
+            while (at < end && fun_005d9235(sbyte(at))) {
+                ++at;
+                if (at >= word(self + 4))
+                    break;
+            }
+        } else {
+            integer_only = true;
+        }
+    } else {
+        if (at + 1 >= word(self + 4) || sbyte(at) != 0x2e || !fun_005d9235(sbyte(at + 1)))
+            return 0;
+        at += 2;
+        while (at < word(self + 4) && fun_005d9235(sbyte(at)))
+            ++at;
+    }
+    bool exponent = false;
+    if (at + 1 < word(self + 4) && fun_005d0969(sbyte(at)) == 0x65 && fun_005d9235(sbyte(at + 1))) {
+        at += 2;
+        exponent = true;
+    } else if (at + 2 < word(self + 4) && fun_005d0969(sbyte(at)) == 0x65 && sbyte(at + 1) == 0x2d &&
+               fun_005d9235(sbyte(at + 2))) {
+        at += 3;
+        exponent = true;
+    }
+    if (exponent) {
+        while (at < word(self + 4) && fun_005d9235(sbyte(at)))
+            ++at;
+    } else if (integer_only) {
+        return 0;
+    }
+    if (out) {
+        const u32 bytes = at - start;
+        char* const text = static_cast<char*>(__builtin_alloca((bytes + 4) & ~3u));
+        copy_bytes(address(text), start, bytes);
+        put_byte(address(text) + bytes, 0);
+        const double value = FUN_005cf914(text);
+        __builtin_memcpy(pointer(out), &value, 8);
+    }
     return at - start;
 }
