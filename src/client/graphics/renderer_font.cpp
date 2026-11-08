@@ -1,4 +1,5 @@
 #include "graphics/render_surface_resource.h"
+#include "runtime/allocations.h"
 // Methods of the font object whose vtable is dat_006df828. Only the field
 // offsets the original reads are recovered: +0x0c the sprite the font draws
 // with, +0x10 its memory DC, +0x14 its HFONT, +0x30 the cached TEXTMETRICW
@@ -80,10 +81,15 @@ __declspec(dllimport) int32_t __attribute__((stdcall)) GetObjectW(void*, int32_t
 __declspec(dllimport) int32_t __attribute__((stdcall)) GetTextMetricsA(void*, void*);
 __declspec(dllimport) uint32_t __attribute__((stdcall))
 GetGlyphOutlineA(void*, uint32_t, uint32_t, void*, uint32_t, void*, const void*);
+__declspec(dllimport) void* __attribute__((stdcall)) SelectObject(void*, void*);
+__declspec(dllimport) int32_t __attribute__((stdcall)) DeleteObject(void*);
+__declspec(dllimport) int32_t __attribute__((stdcall)) DeleteDC(void*);
 __declspec(dllimport) int32_t __attribute__((stdcall))
 MultiByteToWideChar(uint32_t, uint32_t, const char*, int32_t, uint16_t*, int32_t);
 // Nonzero when the wide GDI entry points are usable (renderer_font_storage.cpp).
 extern uint32_t dat_0224f34c;
+// ScriptFreeCache, resolved from usp10.dll at runtime (renderer_font_storage.cpp).
+extern uint32_t dat_0224f390;
 // The interface id of the font and its identity glyph matrix (renderer_font_storage.cpp).
 extern const unsigned char font_iid[] __asm__("_dat_006effe4");
 extern const unsigned char identity_glyph_matrix[] __asm__("_dat_006df814");
@@ -96,6 +102,12 @@ u32 __attribute__((stdcall)) font_get_dc(u32) __asm__("_FUN_005ff000");
 u32 __attribute__((stdcall)) font_on_lost_device(u32) __asm__("_FUN_005ff00f");
 u32 __attribute__((stdcall)) font_on_reset_device(u32) __asm__("_FUN_005ff030");
 u32 __attribute__((thiscall)) font_has_glyph(u32, u32) __asm__("_FUN_005ff051");
+u32 __attribute__((stdcall)) font_release(u32) __asm__("_FUN_00600706");
+extern const unsigned char font_vtable[] __asm__("_dat_006df828");
+void* __attribute__((thiscall)) FUN_005e8bbe(void*, u32);
+void __attribute__((thiscall)) FUN_005ff43b(void*);
+void* __attribute__((thiscall)) FUN_005ff20b(void*, u32);
+void __attribute__((thiscall)) FUN_006005ce(void*);
 }
 // Original 005fee06..005fee4c (RET 12). The output is written only on success.
 u32 font_query_interface(u32 self, u32 iid, u32 output) {
@@ -173,4 +185,82 @@ u32 font_has_glyph(u32 self, u32 glyph) {
     u32 metrics[5];
     return GetGlyphOutlineA(pointer(word(self + 0x10)), glyph, 0x80, metrics, 0, nullptr,
                             identity_glyph_matrix) != 0xffffffffu;
+}
+// Original 00600706..00600721 (RET 4): the new count, or 0 after the
+// scalar deleting destructor ran on the last reference.
+u32 font_release(u32 self) {
+    put(self + 4, word(self + 4) - 1);
+    const u32 count = word(self + 4);
+    if (count)
+        return count;
+    FUN_005e8bbe(pointer(self), 1);
+    return 0;
+}
+// Original 005e8bbe..005e8bdd (thiscall, RET 4): scalar deleting destructor.
+// Both callers ignore EAX.
+extern "C" void* __attribute__((thiscall)) FUN_005e8bbe(void* object, u32 flags) {
+    FUN_005ff43b(object);
+    if (flags & 1)
+        fun_005cc620(object);
+    return object;
+}
+// Original 005ff43b..005ff600 (thiscall, RET): destructor body. Installs the
+// vtable, releases +8 and the sprite at +0x0c, restores the objects the DC
+// had selected (+0x18, +0x20) before deleting the fonts +0x14 and +0x1c and
+// the DC, frees the +0x8c-counted arrays at +0x90, releases the non-NULL
+// entries of the +0x498-counted table at +0x49c, frees the Uniscribe cache at
+// +0x70, the buffer +0x4f8, the tree at +0x490, sixteen buffers from +0x57c
+// down to +0x500 and the table itself. Counts are re-read on every iteration,
+// as in the original. The only caller overwrites EAX.
+extern "C" void __attribute__((thiscall)) FUN_005ff43b(void* object) {
+    const u32 self = address(object);
+    put(self, address(font_vtable));
+    for (u32 field = self + 8; field <= self + 0x0c; field += 4)
+        if (const u32 com = word(field)) {
+            method<Method0>(com, 8)(com);
+            put(field, 0);
+        }
+    if (word(self + 0x10) && word(self + 0x18))
+        SelectObject(pointer(word(self + 0x10)), pointer(word(self + 0x18)));
+    if (const u32 font = word(self + 0x14))
+        DeleteObject(pointer(font));
+    if (word(self + 0x10) && word(self + 0x20))
+        SelectObject(pointer(word(self + 0x10)), pointer(word(self + 0x20)));
+    if (const u32 font = word(self + 0x1c))
+        DeleteObject(pointer(font));
+    if (const u32 dc = word(self + 0x10))
+        DeleteDC(pointer(dc));
+    for (u32 i = 0; i < word(self + 0x8c); ++i)
+        fun_005cc620(pointer(word(self + 0x90 + 4 * i)));
+    for (u32 i = 0; i < word(self + 0x498); ++i)
+        if (const u32 entry = word(word(self + 0x49c) + 4 * i))
+            method<Method0>(entry, 8)(entry);
+    if (word(self + 0x70))
+        reinterpret_cast<u32(__attribute__((stdcall))*)(u32)>(dat_0224f390)(self + 0x70);
+    fun_005cc620(pointer(word(self + 0x4f8)));
+    if (const u32 tree = word(self + 0x490))
+        FUN_005ff20b(pointer(tree), 1);
+    fun_005cc620(pointer(word(self + 0x57c)));
+    for (u32 offset = 0x570; offset >= 0x500; offset -= 8)
+        fun_005cc620(pointer(word(self + offset)));
+    fun_005cc620(pointer(word(self + 0x49c)));
+}
+// Original 005ff20b..005ff22a (thiscall, RET 4): scalar deleting destructor
+// of a tree node. Both callers ignore EAX.
+extern "C" void* __attribute__((thiscall)) FUN_005ff20b(void* node, u32 flags) {
+    FUN_006005ce(node);
+    if (flags & 1)
+        fun_005cc620(node);
+    return node;
+}
+// Original 006005ce..00600603 (thiscall, RET): tree node destructor body:
+// the children at +4 and +8, then the buffers at +0x10 and +0x14.
+extern "C" void __attribute__((thiscall)) FUN_006005ce(void* node) {
+    const u32 self = address(node);
+    if (const u32 left = word(self + 4))
+        FUN_005ff20b(pointer(left), 1);
+    if (const u32 right = word(self + 8))
+        FUN_005ff20b(pointer(right), 1);
+    fun_005cc620(pointer(word(self + 0x10)));
+    fun_005cc620(pointer(word(self + 0x14)));
 }
