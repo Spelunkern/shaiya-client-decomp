@@ -5,6 +5,7 @@
 #include "graphics/render_project_unproject.h"
 #include "graphics/render_surface_resource.h"
 #include "graphics/render_transform_arrays_dispatch.h"
+#include "runtime/allocations.h"
 // Methods of the sprite object whose vtable is dat_006df7dc. Only the field
 // offsets the original reads are recovered; no class layout is inferred.
 // The vtable and the asm still in renderer_font_instructions.cpp reference the
@@ -113,8 +114,12 @@ void store_world_view(u32 self, u32 world, u32 view) {
 constexpr u32 invalid_call = 0x8876086c;
 } // namespace
 extern "C" {
-// The interface id of the sprite, defined in renderer_font_storage.cpp.
+// The interface id and the vtable of the sprite, defined in renderer_font_storage.cpp.
 extern const unsigned char sprite_iid[] __asm__("_dat_006efff4");
+extern const unsigned char sprite_vtable[] __asm__("_dat_006df7dc");
+void __attribute__((thiscall)) FUN_005fd64e(void*);
+void* __attribute__((thiscall)) FUN_005e8b9d(void*, u32);
+u32 __attribute__((stdcall)) sprite_release(u32) __asm__("_FUN_005fede9");
 u32 __attribute__((stdcall)) sprite_query_interface(u32, u32, u32) __asm__("_FUN_005fd2fb");
 u32 __attribute__((stdcall)) sprite_get_device(u32, u32) __asm__("_FUN_005fd341");
 u32 __attribute__((stdcall)) sprite_get_transform(u32, u32) __asm__("_FUN_005fd36b");
@@ -309,4 +314,42 @@ int32_t sprite_order_by_depth_reverse(u32 a, u32 b, u32 context) {
     if (!parity_even(compare_status(again + a * 4, again + b * 4) & 5))
         return 1;
     return by_index(a, b);
+}
+// Original 005fede9..005fee06 (RET 4): the new count, or 0 after the
+// scalar deleting destructor ran on the last reference.
+u32 sprite_release(u32 self) {
+    put(self + 4, word(self + 4) - 1);
+    const u32 count = word(self + 4);
+    if (count)
+        return count;
+    FUN_005e8b9d(pointer(self), 1);
+    return 0;
+}
+// Original 005e8b9d..005e8bbe (thiscall, RET 4): scalar deleting destructor.
+extern "C" void* __attribute__((thiscall)) FUN_005e8b9d(void* object, u32 flags) {
+    FUN_005fd64e(object);
+    if (flags & 1)
+        fun_005cc620(object);
+    return object;
+}
+// Original 005fd64e..005fd762 (thiscall, RET): destructor body. Installs the
+// vtable, releases and clears the twelve COM fields in the original order,
+// frees the aligned matrix block at +0x70 (its offset byte sits just below
+// the matrix) and the four arrays +0xb4..+0xc0. Every caller ignores EAX.
+extern "C" void __attribute__((thiscall)) FUN_005fd64e(void* object) {
+    const u32 self = address(object);
+    put(self, address(sprite_vtable));
+    static const unsigned char fields[12] = {0x08, 0x0c, 0x10, 0x14, 0x18, 0x3c,
+                                             0x28, 0x24, 0x30, 0x2c, 0x38, 0x34};
+    for (u32 i = 0; i < 12; ++i) {
+        const u32 field = self + fields[i];
+        if (const u32 com = word(field)) {
+            release(com);
+            put(field, 0);
+        }
+    }
+    if (const u32 matrix = word(self + 0x70))
+        fun_005cc620(pointer(matrix - byte(matrix - 1)));
+    for (u32 offset = 0xb4; offset <= 0xc0; offset += 4)
+        fun_005cc620(pointer(word(self + offset)));
 }
