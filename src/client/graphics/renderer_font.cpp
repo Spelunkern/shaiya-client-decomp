@@ -73,6 +73,48 @@ u32 forward_to_sprite(u32 self, u32 offset) {
     }
     return 0;
 }
+// REP STOSD / REP STOSB of `bytes` zero bytes.
+void zero_bytes(u32 to, u32 bytes) {
+    u32 dwords = bytes >> 2, rest = bytes & 3;
+    __asm__ volatile("rep stosl\n\tmovl %2,%%ecx\n\trep stosb"
+                     : "+D"(to), "+c"(dwords)
+                     : "r"(rest), "a"(0)
+                     : "memory");
+}
+// REP MOVSD / REP MOVSB of `bytes` bytes.
+void copy_bytes(u32 to, u32 from, u32 bytes) {
+    u32 dwords = bytes >> 2, rest = bytes & 3;
+    __asm__ volatile("rep movsl\n\tmovl %3,%%ecx\n\trep movsb"
+                     : "+D"(to), "+S"(from), "+c"(dwords)
+                     : "r"(rest)
+                     : "memory");
+}
+// Shared body of the six growable-array reserves (thiscall, RET 8) over a
+// {data, capacity} pair: nothing to do when `wanted` fits; otherwise the
+// capacity becomes double the old one (16 when empty), doubled again until
+// it fits, all modulo 2^32 like the original, which therefore spins forever
+// once the doubling wraps to zero. The old elements are copied unless
+// `discard` is set, the old block is freed and E_OUTOFMEMORY is returned if
+// the allocation fails.
+u32 reserve(u32 self, u32 wanted, u32 discard, u32 element) {
+    if (wanted <= word(self + 4))
+        return 0;
+    const u32 capacity = word(self + 4);
+    u32 grown = capacity ? capacity * 2 : 16;
+    while (grown < wanted) {
+        grown *= 2;
+        __asm__ volatile("" ::: "memory");  // keeps the original endless loop observable
+    }
+    const u32 block = address(fun_005cc96d(grown * element));
+    if (!block)
+        return 0x8007000e;
+    if (!discard)
+        copy_bytes(block, word(self), word(self + 4) * element);
+    fun_005cc620(pointer(word(self)));
+    put(self, block);
+    put(self + 4, grown);
+    return 0;
+}
 constexpr u32 invalid_call = 0x8876086c;
 } // namespace
 extern "C" {
@@ -84,10 +126,15 @@ GetGlyphOutlineA(void*, uint32_t, uint32_t, void*, uint32_t, void*, const void*)
 __declspec(dllimport) void* __attribute__((stdcall)) SelectObject(void*, void*);
 __declspec(dllimport) int32_t __attribute__((stdcall)) DeleteObject(void*);
 __declspec(dllimport) int32_t __attribute__((stdcall)) DeleteDC(void*);
+__declspec(dllimport) void* __attribute__((stdcall))
+CreateDIBSection(void*, const void*, uint32_t, void*, void*, uint32_t);
+__declspec(dllimport) int32_t __attribute__((stdcall)) GetVersionExA(void*);
 __declspec(dllimport) int32_t __attribute__((stdcall))
 MultiByteToWideChar(uint32_t, uint32_t, const char*, int32_t, uint16_t*, int32_t);
 // Nonzero when the wide GDI entry points are usable (renderer_font_storage.cpp).
 extern uint32_t dat_0224f34c;
+// Set once dat_0224f34c has been computed (renderer_font_storage.cpp).
+extern uint32_t dat_0224f350;
 // ScriptFreeCache, resolved from usp10.dll at runtime (renderer_font_storage.cpp).
 extern uint32_t dat_0224f390;
 // The interface id of the font and its identity glyph matrix (renderer_font_storage.cpp).
@@ -108,6 +155,15 @@ void* __attribute__((thiscall)) FUN_005e8bbe(void*, u32);
 void __attribute__((thiscall)) FUN_005ff43b(void*);
 void* __attribute__((thiscall)) FUN_005ff20b(void*, u32);
 void __attribute__((thiscall)) FUN_006005ce(void*);
+void* __attribute__((thiscall)) FUN_00600603(void*);
+uint32_t FUN_005e8c00();
+void* __attribute__((thiscall)) FUN_005ff085(void*, const void*, void*);
+u32 __attribute__((thiscall)) FUN_005ff10b(void*, u32, u32);
+u32 __attribute__((thiscall)) FUN_005ff18b(void*, u32, u32);
+u32 __attribute__((thiscall)) FUN_005ff22c(void*, u32, u32);
+u32 __attribute__((thiscall)) FUN_005ff2ab(void*, u32, u32);
+u32 __attribute__((thiscall)) FUN_005ff328(void*, u32, u32);
+u32 __attribute__((thiscall)) FUN_005ff3a8(void*, u32, u32);
 }
 // Original 005fee06..005fee4c (RET 12). The output is written only on success.
 u32 font_query_interface(u32 self, u32 iid, u32 output) {
@@ -263,4 +319,83 @@ extern "C" void __attribute__((thiscall)) FUN_006005ce(void* node) {
         FUN_005ff20b(pointer(right), 1);
     fun_005cc620(pointer(word(self + 0x10)));
     fun_005cc620(pointer(word(self + 0x14)));
+}
+// Original 00600603..00600706 (thiscall, RET): constructor. Returns the
+// object; callers read nothing else.
+extern "C" void* __attribute__((thiscall)) FUN_00600603(void* object) {
+    const u32 self = address(object);
+    put(self, address(font_vtable));
+    put(self + 0x49c, 0);
+    put(self + 0x4a0, 0);
+    for (u32 offset = 0x500; offset <= 0x570; offset += 8) {
+        put(self + offset, 0);
+        put(self + offset + 4, 0);
+    }
+    put(self + 0x57c, 0);
+    put(self + 0x580, 0);
+    put(self + 4, 1);
+    for (u32 offset = 8; offset <= 0x20; offset += 4)
+        put(self + offset, 0);
+    static const unsigned short zeroed[6] = {0x70, 0x578, 0x8c, 0x498, 0x4f8, 0x490};
+    for (u32 i = 0; i < 6; ++i)
+        put(self + zeroed[i], 0);
+    return object;
+}
+// Original 005e8c00..005e8c4f (cdecl): whether GetVersionExA reports
+// VER_PLATFORM_WIN32_NT, computed once. The flag dat_0224f350 is set before
+// the call. The original reads a stale frame if GetVersionExA fails; here
+// the platform field is zero.
+extern "C" uint32_t FUN_005e8c00() {
+    if (dat_0224f350)
+        return dat_0224f34c;
+    u32 info[37];
+    zero_bytes(address(info), sizeof info);  // no implicit memset call
+    dat_0224f350 = 1;
+    info[0] = 0x94;
+    GetVersionExA(info);
+    dat_0224f34c = info[4] == 2;
+    return dat_0224f34c;
+}
+// Original 005ff085..005ff10b (thiscall, RET 8): a top-down 32-bit DIB
+// section of the {width, height} at `size` on the DC at +0x10. The
+// BITMAPINFO block is header plus width * height * 4 bytes (modulo 2^32),
+// zero-filled; NULL when it cannot be allocated.
+extern "C" void* __attribute__((thiscall)) FUN_005ff085(void* object, const void* size,
+                                                        void* bits) {
+    const u32 dims = address(size);
+    const u32 bytes = word(dims) * word(dims + 4) * 4 + 0x28;
+    const u32 info = address(fun_005cc96d(bytes));
+    if (!info)
+        return nullptr;
+    zero_bytes(info, bytes);
+    put(info, 0x28);
+    put(info + 4, word(dims));
+    put(info + 8, 0u - word(dims + 4));
+    put(info + 0x10, 0);
+    put_half(info + 0x0c, 1);
+    put_half(info + 0x0e, 0x20);
+    void* const bitmap =
+        CreateDIBSection(pointer(word(address(object) + 0x10)), pointer(info), 0, bits, nullptr, 0);
+    fun_005cc620(pointer(info));
+    return bitmap;
+}
+// Originals 005ff10b, 005ff18b, 005ff22c, 005ff2ab, 005ff328 and 005ff3a8:
+// the reserve above for 8-, 16-, 2-, 1-, 4- and 12-byte elements.
+extern "C" u32 __attribute__((thiscall)) FUN_005ff10b(void* self, u32 wanted, u32 discard) {
+    return reserve(address(self), wanted, discard, 8);
+}
+extern "C" u32 __attribute__((thiscall)) FUN_005ff18b(void* self, u32 wanted, u32 discard) {
+    return reserve(address(self), wanted, discard, 16);
+}
+extern "C" u32 __attribute__((thiscall)) FUN_005ff22c(void* self, u32 wanted, u32 discard) {
+    return reserve(address(self), wanted, discard, 2);
+}
+extern "C" u32 __attribute__((thiscall)) FUN_005ff2ab(void* self, u32 wanted, u32 discard) {
+    return reserve(address(self), wanted, discard, 1);
+}
+extern "C" u32 __attribute__((thiscall)) FUN_005ff328(void* self, u32 wanted, u32 discard) {
+    return reserve(address(self), wanted, discard, 4);
+}
+extern "C" u32 __attribute__((thiscall)) FUN_005ff3a8(void* self, u32 wanted, u32 discard) {
+    return reserve(address(self), wanted, discard, 12);
 }
