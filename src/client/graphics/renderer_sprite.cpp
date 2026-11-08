@@ -1,5 +1,10 @@
 #include "graphics/render_debug_mute.h"
+#include "graphics/render_dispatch.h"
+#include "graphics/render_matrix_pair.h"
+#include "graphics/render_packed_trig_quaternions.h"
+#include "graphics/render_project_unproject.h"
 #include "graphics/render_surface_resource.h"
+#include "graphics/render_transform_arrays_dispatch.h"
 // Methods of the sprite object whose vtable is dat_006df7dc. Only the field
 // offsets the original reads are recovered; no class layout is inferred.
 // The vtable and the asm still in renderer_font_instructions.cpp reference the
@@ -63,6 +68,48 @@ int32_t by_index(u32 a, u32 b) {
         return -1;
     return b < a ? 1 : 0;
 }
+// FLD constant / FLD m32 / FUCOMPP / FNSTSW AX, then TEST AH,0x44 / JP:
+// only the equal outcome (C3 alone) has odd parity. The compare is quiet.
+bool quiet_equal(u32 value, const uint32_t* constant) {
+    u32 status;
+    __asm__ volatile("flds (%1)\n\tflds (%2)\n\tfucompp\n\tfnstsw %%ax"
+                     : "=a"(status)
+                     : "r"(constant), "r"(value)
+                     : "cc", "memory");
+    return __builtin_parity((status >> 8) & 0x44);
+}
+// FLD m32 / FCHS / FSTP m32: a signaling NaN comes out quiet, as in the original.
+void negate_float(u32 from, u32 to) {
+    __asm__ volatile("flds (%0)\n\tfchs\n\tfstps (%1)" ::"r"(from), "r"(to) : "memory");
+}
+void copy_matrix(u32 to, u32 from) {
+    u32 count = 16;
+    __asm__ volatile("rep movsl" : "+D"(to), "+S"(from), "+c"(count)::"memory");
+}
+void* pointer(u32 p) {
+    return reinterpret_cast<void*>(static_cast<uintptr_t>(p));
+}
+// Shared head of SetWorldViewRH/LH: the view matrix at *(+0x80) becomes
+// world * view, the one that is not NULL, or identity (stored in the
+// original order: the twelve zeros, then the four ones).
+void store_world_view(u32 self, u32 world, u32 view) {
+    if (world && view) {
+        FUN_005e4db8(static_cast<D3DMATRIX*>(pointer(word(self + 0x80))),
+                     static_cast<const D3DMATRIX*>(pointer(world)),
+                     static_cast<const D3DMATRIX*>(pointer(view)));
+    } else if (world || view) {
+        copy_matrix(word(self + 0x80), world ? world : view);
+    } else {
+        const u32 out = word(self + 0x80);
+        static const unsigned char zeros[12] = {0x38, 0x34, 0x30, 0x2c, 0x24, 0x20,
+                                                0x1c, 0x18, 0x10, 0x0c, 0x08, 0x04};
+        static const unsigned char ones[4] = {0x3c, 0x28, 0x14, 0x00};
+        for (u32 i = 0; i < 12; ++i)
+            put(out + zeros[i], 0);
+        for (u32 i = 0; i < 4; ++i)
+            put(out + ones[i], 0x3f800000);
+    }
+}
 constexpr u32 invalid_call = 0x8876086c;
 } // namespace
 extern "C" {
@@ -71,6 +118,9 @@ extern const unsigned char sprite_iid[] __asm__("_dat_006efff4");
 u32 __attribute__((stdcall)) sprite_query_interface(u32, u32, u32) __asm__("_FUN_005fd2fb");
 u32 __attribute__((stdcall)) sprite_get_device(u32, u32) __asm__("_FUN_005fd341");
 u32 __attribute__((stdcall)) sprite_get_transform(u32, u32) __asm__("_FUN_005fd36b");
+u32 __attribute__((stdcall)) sprite_set_transform(u32, u32) __asm__("_FUN_005fd9e2");
+u32 __attribute__((stdcall)) sprite_set_world_view_rh(u32, u32, u32) __asm__("_FUN_005fdb87");
+u32 __attribute__((stdcall)) sprite_set_world_view_lh(u32, u32, u32) __asm__("_FUN_005fdc69");
 u32 __attribute__((stdcall)) sprite_end(u32) __asm__("_FUN_005fd396");
 u32 __attribute__((stdcall)) sprite_on_lost_device(u32) __asm__("_FUN_005fd444");
 u32 __attribute__((stdcall)) sprite_on_reset_device(u32) __asm__("_FUN_005fd4ee");
@@ -99,8 +149,67 @@ u32 sprite_get_device(u32 self, u32 output) {
 u32 sprite_get_transform(u32 self, u32 output) {
     if (!output)
         return invalid_call;
-    u32 from = word(self + 0x70), count = 16;
-    __asm__ volatile("rep movsl" : "+D"(output), "+S"(from), "+c"(count)::"memory");
+    copy_matrix(output, word(self + 0x70));
+    return 0;
+}
+// Original 005fd9e2..005fdb87 (RET 8). Inside Begin, the vertices queued
+// since the last transform (+0xcc up to +0xc4, four 0x18-byte vertices per
+// sprite at +0xc0) are first transformed by the old matrix, unless +0x64
+// says it is identity or Begin flag 8 is set. Then the matrix is copied to
+// *(+0x70) and +0x64 records whether the copy is exactly identity.
+u32 sprite_set_transform(u32 self, u32 matrix) {
+    if (!matrix)
+        return invalid_call;
+    if (word(self + 0xac)) {
+        if (!word(self + 0x64) && !(byte(self + 0xb0) & 8)) {
+            const u32 done = word(self + 0xcc);
+            const u32 vertices = done * 96 + word(self + 0xc0);
+            const u32 count = (word(self + 0xc4) - done) << 2;
+            FUN_005e44ea(pointer(vertices), 0x18, pointer(vertices), 0x18,
+                         pointer(word(self + 0x70)), count);
+        }
+        put(self + 0xcc, word(self + 0xc4));
+    }
+    copy_matrix(word(self + 0x70), matrix);
+    const u32 copy = word(self + 0x70);
+    u32 identity = 1;
+    for (u32 i = 0; i < 16; ++i)
+        if (!quiet_equal(copy + 4 * i, i % 5 ? dat_006bb5fc : dat_006bc4dc)) {
+            identity = 0;
+            break;
+        }
+    put(self + 0x68, 0);
+    put(self + 0x64, identity);
+    return 0;
+}
+// Original 005fdb87..005fdc69 (RET 12). Refused inside Begin. The view
+// direction at +0x94 is the negated third column, then normalized in place.
+u32 sprite_set_world_view_rh(u32 self, u32 world, u32 view) {
+    if (word(self + 0xac))
+        return invalid_call;
+    store_world_view(self, world, view);
+    const u32 matrix = word(self + 0x80);
+    negate_float(matrix + 0x08, self + 0x94);
+    negate_float(matrix + 0x18, self + 0x98);
+    negate_float(matrix + 0x28, self + 0x9c);
+    float* direction = static_cast<float*>(pointer(self + 0x94));
+    FUN_005e40eb(direction, direction);
+    put(self + 0x68, 0);
+    return 0;
+}
+// Original 005fdc69..005fdd45 (RET 12): as RH, with the column copied as
+// plain dwords.
+u32 sprite_set_world_view_lh(u32 self, u32 world, u32 view) {
+    if (word(self + 0xac))
+        return invalid_call;
+    store_world_view(self, world, view);
+    const u32 matrix = word(self + 0x80);
+    put(self + 0x94, word(matrix + 0x08));
+    put(self + 0x98, word(matrix + 0x18));
+    put(self + 0x9c, word(matrix + 0x28));
+    float* direction = static_cast<float*>(pointer(self + 0x94));
+    FUN_005e40eb(direction, direction);
+    put(self + 0x68, 0);
     return 0;
 }
 // Original 005fd396..005fd444 (RET 4). +0xac is the "inside Begin" flag and
