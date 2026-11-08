@@ -2,231 +2,65 @@
 extern "C" {
 #include "graphics/render_rsqrt_coefficients.h"
 }
-// Exact original instruction schedule, frame, reads and physical x87 effects.
-__asm__(".text\n"
-        ".intel_syntax noprefix\n"
-        ".globl \"_FUN_0064f3e9@8\"\n"
-        "\"_FUN_0064f3e9@8\":\n"
-        ".globl _rsqrt_location_0064f3e9\n"
-        "_rsqrt_location_0064f3e9:\n"
-        "mov edi, edi\n"
-        ".globl _rsqrt_location_0064f3eb\n"
-        "_rsqrt_location_0064f3eb:\n"
-        "push ebp\n"
-        ".globl _rsqrt_location_0064f3ec\n"
-        "_rsqrt_location_0064f3ec:\n"
-        "mov ebp, esp\n"
-        ".globl _rsqrt_location_0064f3ee\n"
-        "_rsqrt_location_0064f3ee:\n"
-        "push ecx\n"
-        ".globl _rsqrt_location_0064f3ef\n"
-        "_rsqrt_location_0064f3ef:\n"
-        "push ecx\n"
-        ".globl _rsqrt_location_0064f3f0\n"
-        "_rsqrt_location_0064f3f0:\n"
-        "push edi\n"
-        ".globl _rsqrt_location_0064f3f1\n"
-        "_rsqrt_location_0064f3f1:\n"
-        "mov ecx, dword ptr [ebp + 8]\n"
-        ".globl _rsqrt_location_0064f3f4\n"
-        "_rsqrt_location_0064f3f4:\n"
-        "mov edx, dword ptr [ebp + 0xc]\n"
-        ".globl _rsqrt_location_0064f3f7\n"
-        "_rsqrt_location_0064f3f7:\n"
-        "fld dword ptr [edx]\n"
-        ".globl _rsqrt_location_0064f3f9\n"
-        "_rsqrt_location_0064f3f9:\n"
-        "fmul dword ptr [edx]\n"
-        ".globl _rsqrt_location_0064f3fb\n"
-        "_rsqrt_location_0064f3fb:\n"
-        "fld dword ptr [edx + 4]\n"
-        ".globl _rsqrt_location_0064f3fe\n"
-        "_rsqrt_location_0064f3fe:\n"
-        "fmul dword ptr [edx + 4]\n"
-        ".globl _rsqrt_location_0064f401\n"
-        "_rsqrt_location_0064f401:\n"
-        "fld dword ptr [edx + 8]\n"
-        ".globl _rsqrt_location_0064f404\n"
-        "_rsqrt_location_0064f404:\n"
-        "fmul dword ptr [edx + 8]\n"
-        ".globl _rsqrt_location_0064f407\n"
-        "_rsqrt_location_0064f407:\n"
-        "fxch st(2)\n"
-        ".globl _rsqrt_location_0064f409\n"
-        "_rsqrt_location_0064f409:\n"
-        "faddp st(1)\n"
-        ".globl _rsqrt_location_0064f40b\n"
-        "_rsqrt_location_0064f40b:\n"
-        "faddp st(1)\n"
-        ".globl _rsqrt_location_0064f40d\n"
-        "_rsqrt_location_0064f40d:\n"
-        "fst dword ptr [ebp - 8]\n"
-        ".globl _rsqrt_location_0064f410\n"
-        "_rsqrt_location_0064f410:\n"
-        "mov eax, dword ptr [ebp - 8]\n"
-        ".globl _rsqrt_location_0064f413\n"
-        "_rsqrt_location_0064f413:\n"
-        "test eax, eax\n"
-        ".globl _rsqrt_location_0064f415\n"
-        "_rsqrt_location_0064f415:\n"
-        "jne _rsqrt_location_0064f426\n"
-        ".globl _rsqrt_location_0064f417\n"
-        "_rsqrt_location_0064f417:\n"
-        "ffree st(0)\n"
-        ".globl _rsqrt_location_0064f419\n"
-        "_rsqrt_location_0064f419:\n"
-        "mov dword ptr [ecx], eax\n"
-        ".globl _rsqrt_location_0064f41b\n"
-        "_rsqrt_location_0064f41b:\n"
-        "mov dword ptr [ecx + 4], eax\n"
-        ".globl _rsqrt_location_0064f41e\n"
-        "_rsqrt_location_0064f41e:\n"
-        "mov dword ptr [ecx + 8], eax\n"
-        ".globl _rsqrt_location_0064f421\n"
-        "_rsqrt_location_0064f421:\n"
-        "jmp _rsqrt_location_0064f4ad\n"
-        ".globl _rsqrt_location_0064f426\n"
-        "_rsqrt_location_0064f426:\n"
-        "fld1\n"
-        ".globl _rsqrt_location_0064f428\n"
-        "_rsqrt_location_0064f428:\n"
-        "fsubp st(1)\n"
-        ".globl _rsqrt_location_0064f42a\n"
-        "_rsqrt_location_0064f42a:\n"
-        "fstp dword ptr [ebp - 4]\n"
-        ".globl _rsqrt_location_0064f42d\n"
-        "_rsqrt_location_0064f42d:\n"
-        "mov eax, dword ptr [ebp - 4]\n"
-        ".globl _rsqrt_location_0064f430\n"
-        "_rsqrt_location_0064f430:\n"
-        "and eax, 0x7fffffff\n"
-        ".globl _rsqrt_location_0064f435\n"
-        "_rsqrt_location_0064f435:\n"
-        "cmp eax, 0x3727c5ac\n"
-        ".globl _rsqrt_location_0064f43a\n"
-        "_rsqrt_location_0064f43a:\n"
-        "jg _rsqrt_location_0064f452\n"
-        ".globl _rsqrt_location_0064f43c\n"
-        "_rsqrt_location_0064f43c:\n"
-        "cmp ecx, edx\n"
-        ".globl _rsqrt_location_0064f43e\n"
-        "_rsqrt_location_0064f43e:\n"
-        "je _rsqrt_location_0064f4ad\n"
-        ".globl _rsqrt_location_0064f440\n"
-        "_rsqrt_location_0064f440:\n"
-        "mov eax, dword ptr [edx]\n"
-        ".globl _rsqrt_location_0064f442\n"
-        "_rsqrt_location_0064f442:\n"
-        "mov dword ptr [ecx], eax\n"
-        ".globl _rsqrt_location_0064f444\n"
-        "_rsqrt_location_0064f444:\n"
-        "mov eax, dword ptr [edx + 4]\n"
-        ".globl _rsqrt_location_0064f447\n"
-        "_rsqrt_location_0064f447:\n"
-        "mov dword ptr [ecx + 4], eax\n"
-        ".globl _rsqrt_location_0064f44a\n"
-        "_rsqrt_location_0064f44a:\n"
-        "mov eax, dword ptr [edx + 8]\n"
-        ".globl _rsqrt_location_0064f44d\n"
-        "_rsqrt_location_0064f44d:\n"
-        "mov dword ptr [ecx + 8], eax\n"
-        ".globl _rsqrt_location_0064f450\n"
-        "_rsqrt_location_0064f450:\n"
-        "jmp _rsqrt_location_0064f4ad\n"
-        ".globl _rsqrt_location_0064f452\n"
-        "_rsqrt_location_0064f452:\n"
-        "mov eax, dword ptr [ebp - 8]\n"
-        ".globl _rsqrt_location_0064f455\n"
-        "_rsqrt_location_0064f455:\n"
-        "mov edi, eax\n"
-        ".globl _rsqrt_location_0064f457\n"
-        "_rsqrt_location_0064f457:\n"
-        "shr edi, 0xc\n"
-        ".globl _rsqrt_location_0064f45a\n"
-        "_rsqrt_location_0064f45a:\n"
-        "and eax, 0xffffff\n"
-        ".globl _rsqrt_location_0064f45f\n"
-        "_rsqrt_location_0064f45f:\n"
-        "and edi, 0xff8\n"
-        ".globl _rsqrt_location_0064f465\n"
-        "_rsqrt_location_0064f465:\n"
-        "or eax, 0x3f000000\n"
-        ".globl _rsqrt_location_0064f46a\n"
-        "_rsqrt_location_0064f46a:\n"
-        "mov dword ptr [ebp - 4], eax\n"
-        ".globl _rsqrt_location_0064f46d\n"
-        "_rsqrt_location_0064f46d:\n"
-        "fld dword ptr [ebp - 4]\n"
-        ".globl _rsqrt_location_0064f470\n"
-        "_rsqrt_location_0064f470:\n"
-        "fmul dword ptr [edi + _dat_00715908]\n"
-        ".globl _rsqrt_location_0064f476\n"
-        "_rsqrt_location_0064f476:\n"
-        "mov eax, 0xbeffffff\n"
-        ".globl _rsqrt_location_0064f47b\n"
-        "_rsqrt_location_0064f47b:\n"
-        "sub eax, dword ptr [ebp - 8]\n"
-        ".globl _rsqrt_location_0064f47e\n"
-        "_rsqrt_location_0064f47e:\n"
-        "fadd dword ptr [edi + _dat_00715908+4]\n"
-        ".globl _rsqrt_location_0064f484\n"
-        "_rsqrt_location_0064f484:\n"
-        "shr eax, 1\n"
-        ".globl _rsqrt_location_0064f486\n"
-        "_rsqrt_location_0064f486:\n"
-        "and eax, 0xff800000\n"
-        ".globl _rsqrt_location_0064f48b\n"
-        "_rsqrt_location_0064f48b:\n"
-        "mov dword ptr [ebp - 4], eax\n"
-        ".globl _rsqrt_location_0064f48e\n"
-        "_rsqrt_location_0064f48e:\n"
-        "fmul dword ptr [ebp - 4]\n"
-        ".globl _rsqrt_location_0064f491\n"
-        "_rsqrt_location_0064f491:\n"
-        "fld dword ptr [edx]\n"
-        ".globl _rsqrt_location_0064f493\n"
-        "_rsqrt_location_0064f493:\n"
-        "fmul st(1)\n"
-        ".globl _rsqrt_location_0064f495\n"
-        "_rsqrt_location_0064f495:\n"
-        "fld dword ptr [edx + 4]\n"
-        ".globl _rsqrt_location_0064f498\n"
-        "_rsqrt_location_0064f498:\n"
-        "fmul st(2)\n"
-        ".globl _rsqrt_location_0064f49a\n"
-        "_rsqrt_location_0064f49a:\n"
-        "fld dword ptr [edx + 8]\n"
-        ".globl _rsqrt_location_0064f49d\n"
-        "_rsqrt_location_0064f49d:\n"
-        "fmul st(3)\n"
-        ".globl _rsqrt_location_0064f49f\n"
-        "_rsqrt_location_0064f49f:\n"
-        "fxch st(2)\n"
-        ".globl _rsqrt_location_0064f4a1\n"
-        "_rsqrt_location_0064f4a1:\n"
-        "fstp dword ptr [ecx]\n"
-        ".globl _rsqrt_location_0064f4a3\n"
-        "_rsqrt_location_0064f4a3:\n"
-        "fstp dword ptr [ecx + 4]\n"
-        ".globl _rsqrt_location_0064f4a6\n"
-        "_rsqrt_location_0064f4a6:\n"
-        "fstp dword ptr [ecx + 8]\n"
-        ".globl _rsqrt_location_0064f4a9\n"
-        "_rsqrt_location_0064f4a9:\n"
-        "fstp st(0)\n"
-        ".globl _rsqrt_location_0064f4ab\n"
-        "_rsqrt_location_0064f4ab:\n"
-        "jmp _rsqrt_location_0064f4ad\n"
-        ".globl _rsqrt_location_0064f4ad\n"
-        "_rsqrt_location_0064f4ad:\n"
-        "mov eax, dword ptr [ebp + 8]\n"
-        ".globl _rsqrt_location_0064f4b0\n"
-        "_rsqrt_location_0064f4b0:\n"
-        "pop edi\n"
-        ".globl _rsqrt_location_0064f4b1\n"
-        "_rsqrt_location_0064f4b1:\n"
-        "leave\n"
-        ".globl _rsqrt_location_0064f4b2\n"
-        "_rsqrt_location_0064f4b2:\n"
-        "ret 8\n"
-        ".att_syntax prefix\n");
+
+namespace {
+uint32_t bits_of(float value) {
+    uint32_t bits;
+    __builtin_memcpy(&bits, &value, 4);
+    return bits;
+}
+float float_of(uint32_t bits) {
+    float value;
+    __builtin_memcpy(&value, &bits, 4);
+    return value;
+}
+// The near-unit path copies the components as integers: an x87 load and
+// store would quiet signalling NaNs and raise exception flags.
+void copy_word(float* to, const float* from) {
+    const uint32_t word = *reinterpret_cast<const volatile uint32_t*>(from);
+    *reinterpret_cast<volatile uint32_t*>(to) = word;
+}
+} // namespace
+
+// 0x0064f3e9 (D3DXVec3Normalize): out = in / |in|, using the table-driven
+// reciprocal square root of dat_00715908.
+//
+// The arithmetic runs on the x87 stack in its current precision: products,
+// sums and the reciprocal stay in registers (long double) and are rounded to
+// float only where the original stores them. A zero length writes +0.0f; a
+// length within 1e-5 of one copies the input unchanged.
+extern "C" float* __attribute__((stdcall)) FUN_0064f3e9(float* out, const float* in) {
+    using x87 = long double;
+    const x87 length_squared =
+        x87(in[0]) * in[0] + x87(in[1]) * in[1] + x87(in[2]) * in[2];
+    const uint32_t bits = bits_of(float(length_squared));
+    if (bits == 0) {
+        out[0] = float_of(0);
+        out[1] = float_of(0);
+        out[2] = float_of(0);
+        // The original discards the length with FFREE, which leaves TOP one
+        // slot lower than a pop would; rotate it the same way.
+        __asm__ volatile("fdecstp" ::: "memory");
+        return out;
+    }
+    if (int32_t(bits_of(float(length_squared - 1)) & 0x7fffffffu) <= 0x3727c5ac) {
+        if (out != in) {
+            copy_word(out, in);
+            copy_word(out + 1, in + 1);
+            copy_word(out + 2, in + 2);
+        }
+        return out;
+    }
+    const RsqrtCoefficients& coefficient = dat_00715908[(bits >> 15) & 0x1ff];
+    const float mantissa = float_of((bits & 0x00ffffffu) | 0x3f000000u);
+    const float exponent = float_of(((0xbeffffffu - bits) >> 1) & 0xff800000u);
+    const x87 reciprocal = (x87(mantissa) * coefficient.multiplier + coefficient.addend) * exponent;
+    // All three inputs are read before the first store, so out may alias in.
+    const float x = float(in[0] * reciprocal);
+    const float y = float(in[1] * reciprocal);
+    const float z = float(in[2] * reciprocal);
+    out[0] = x;
+    out[1] = y;
+    out[2] = z;
+    return out;
+}
